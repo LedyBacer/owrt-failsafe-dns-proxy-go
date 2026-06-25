@@ -140,11 +140,11 @@ for artifact_key in $artifact_keys; do
 done
 json_cleanup
 
-[ -n "$daemon_file" ] && [ -n "$daemon_sha" ] || {
+if [ -z "$daemon_file" ] || [ -z "$daemon_sha" ]; then
 	printf 'no exact artifact for OpenWrt %s %s/%s %s (%s)\n' \
 		"$OPENWRT_VERSION" "$OPENWRT_TARGET" "$OPENWRT_SUBTARGET" "$OPENWRT_PKGARCH" "$PACKAGE_MANAGER" >&2
 	exit 3
-}
+fi
 if [ "$include_luci" -eq 1 ] && { [ -z "$luci_file" ] || [ -z "$luci_sha" ]; }; then
 	printf '%s\n' "the exact manifest entry does not contain a LuCI package" >&2
 	exit 3
@@ -156,7 +156,9 @@ fi
 
 download_package() {
 	local file="$1" sha="$2" source output
-	[ -n "$file" ] && [ -n "$sha" ] || return 0
+	if [ -z "$file" ] || [ -z "$sha" ]; then
+		return 0
+	fi
 	output="$temporary/$file"
 	if [ -n "$source_dir" ]; then
 		source="$source_dir/$file"
