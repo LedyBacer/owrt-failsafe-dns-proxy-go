@@ -10,6 +10,27 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 class ReleaseToolingTest(unittest.TestCase):
+    def test_openwrt_go_environment_patch_is_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            makefile = Path(temporary) / "Makefile"
+            makefile.write_text(
+                "HOST_GO_VARS= \\\n"
+                "\tGOENV=off \\\n"
+                "\tCC=gcc\n"
+                "PKG_GO_VARS= \\\n"
+                "\tGOENV=off \\\n"
+                "\tGOTOOLCHAIN=local \\\n"
+                "\tCC=gcc\n",
+                encoding="utf-8",
+            )
+            command = [REPO / "scripts/patch-openwrt-go-env.py", makefile]
+            subprocess.run(command, check=True)
+            first = makefile.read_text(encoding="utf-8")
+            subprocess.run(command, check=True)
+            second = makefile.read_text(encoding="utf-8")
+            self.assertEqual(first, second)
+            self.assertEqual(first.count("GOTOOLCHAIN=local"), 2)
+
     def test_assemble_release_validates_and_renames_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

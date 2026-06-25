@@ -54,9 +54,9 @@ jobs:
           path: |
             build/downloads
             build/openwrt-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}
-          key: openwrt-sdk-v2-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-${{ hashFiles('package/**', 'go.mod', 'go.sum', 'scripts/build-openwrt.sh') }}
+          key: openwrt-sdk-v3-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-${{ hashFiles('package/**', 'go.mod', 'go.sum', 'scripts/build-openwrt.sh', 'scripts/patch-openwrt-go-env.py') }}
           restore-keys: |
-            openwrt-sdk-v2-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-
+            openwrt-sdk-v3-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-
       - name: Build packages
         run: |
           ./scripts/build-openwrt.sh \

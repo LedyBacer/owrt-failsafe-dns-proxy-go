@@ -296,8 +296,9 @@ package/luci-app-failsafe-dns-proxy/
 - [x] LuCI/static checks;
 - [x] Markdown и GitHub Actions lint;
 - [x] официальный OpenWrt SDK package smoke build для IPK и APK;
-- [x] Go SDK bootstrap изолирован через `GOTOOLCHAIN=local`, чтобы GitHub
-  Actions не пытался автоматически скачать промежуточный toolchain.
+- [x] Go SDK bootstrap изолирован через `GOTOOLCHAIN=local`; compatibility
+  patch возвращает переменную в команды feed после намеренного `unexport`,
+  чтобы GitHub Actions не скачивал промежуточный toolchain.
 
 ### `build-one.yml`
 

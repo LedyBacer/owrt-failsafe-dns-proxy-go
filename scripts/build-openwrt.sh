@@ -83,6 +83,16 @@ fi
 ./scripts/feeds install csstidy
 ./scripts/feeds install luasrcdiet
 
+# The OpenWrt Go feed intentionally unexports GOTOOLCHAIN. Some bootstrap and
+# host Makefiles do not add it back, so nested Go source modules can trigger an
+# impossible automatic download of an intermediate toolchain (for example
+# go1.23.0 while building Go 1.24). Patch every explicit GOENV=off command
+# environment to keep the SDK build fully local and reproducible.
+mapfile -t go_makefiles < <(
+	find feeds/packages/lang/golang -type f \( -name Makefile -o -name '*.mk' \) -print
+)
+python3 "${repo_dir}/scripts/patch-openwrt-go-env.py" "${go_makefiles[@]}"
+
 rm -rf package/failsafe-dns-proxy package/luci-app-failsafe-dns-proxy
 ln -s "${repo_dir}/package/failsafe-dns-proxy" package/failsafe-dns-proxy
 ln -s "${repo_dir}/package/luci-app-failsafe-dns-proxy" package/luci-app-failsafe-dns-proxy
