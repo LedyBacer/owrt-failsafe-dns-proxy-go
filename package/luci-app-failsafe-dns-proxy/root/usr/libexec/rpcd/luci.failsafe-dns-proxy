@@ -1,0 +1,193 @@
+#!/bin/sh
+
+readonly package_name="failsafe-dns-proxy"
+readonly binary="/usr/sbin/failsafe-dns-proxy"
+readonly config="/etc/config/failsafe-dns-proxy"
+readonly dnsmasq_helper="/usr/sbin/failsafe-dns-proxy-dnsmasq"
+
+. "${IPKG_INSTROOT}/lib/functions.sh"
+. "${IPKG_INSTROOT}/usr/share/libubox/jshn.sh"
+
+json_result() {
+	json_init
+	json_add_boolean result "$1"
+	json_add_string message "$2"
+	json_dump
+	json_cleanup
+}
+
+get_status() {
+	local output
+	if output="$("$binary" status --json 2>/dev/null)"; then
+		printf '%s\n' "$output"
+	else
+		json_init
+		json_add_string version "$("$binary" version 2>/dev/null)"
+		json_add_string active_upstream ""
+		json_add_array upstreams
+		json_close_array
+		json_add_string error "service is not running"
+		json_dump
+		json_cleanup
+	fi
+}
+
+get_service() {
+	json_init
+	if "/etc/init.d/$package_name" enabled >/dev/null 2>&1; then
+		json_add_boolean enabled 1
+	else
+		json_add_boolean enabled 0
+	fi
+	if "/etc/init.d/$package_name" running >/dev/null 2>&1; then
+		json_add_boolean running 1
+	else
+		json_add_boolean running 0
+	fi
+	json_add_string version "$("$binary" version 2>/dev/null)"
+	json_dump
+	json_cleanup
+}
+
+get_logs() {
+	local limit="$1" line log_file
+	case "$limit" in
+		''|*[!0-9]*) limit=100 ;;
+	esac
+	[ "$limit" -lt 20 ] && limit=20
+	[ "$limit" -gt 300 ] && limit=300
+	log_file="/tmp/failsafe-dns-proxy-log.$$"
+	logread -e "$package_name" | grep -E \
+		'upstream failure detected|upstream unavailable|upstream recovery detected|upstream recovered|active upstream changed|emergency DNS path (enabled|disabled)' |
+		tail -n "$limit" >"$log_file" 2>/dev/null
+	json_init
+	json_add_array lines
+	while IFS= read -r line; do
+		json_add_string "" "$line"
+	done <"$log_file"
+	json_close_array
+	json_dump
+	json_cleanup
+	rm -f "$log_file"
+}
+
+check_config() {
+	local output rc
+	output="$("$binary" check-config --config "$config" 2>&1)"
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		json_result 1 "$output"
+	else
+		json_result 0 "$output"
+	fi
+}
+
+probe_upstream() {
+	local name="$1"
+	name="$(basename "$name")"
+	"$binary" probe --config "$config" --json "$name" 2>/dev/null
+}
+
+set_service_action() {
+	local action="$1"
+	case "$action" in
+		start|stop|restart|reload|enable|disable)
+			if "/etc/init.d/$package_name" "$action" >/dev/null 2>&1; then
+				json_result 1 "$action succeeded"
+			else
+				json_result 0 "$action failed"
+			fi
+			;;
+		*)
+			json_result 0 "unsupported action"
+			;;
+	esac
+}
+
+get_dnsmasq_integration() {
+	"$dnsmasq_helper" status --json
+}
+
+set_dnsmasq_integration() {
+	local action="$1"
+	case "$action" in
+		dry-run|enable|disable)
+			"$dnsmasq_helper" "$action" --json
+			;;
+		*)
+			json_result 0 "unsupported action"
+			;;
+	esac
+}
+
+case "$1" in
+	list)
+		json_init
+		json_add_object getStatus
+		json_close_object
+		json_add_object getService
+		json_close_object
+		json_add_object getLogs
+			json_add_string limit limit
+		json_close_object
+		json_add_object checkConfig
+		json_close_object
+		json_add_object probe
+			json_add_string name name
+		json_close_object
+		json_add_object setServiceAction
+			json_add_string action action
+		json_close_object
+		json_add_object getDnsmasqIntegration
+		json_close_object
+		json_add_object setDnsmasqIntegration
+			json_add_string action action
+		json_close_object
+		json_dump
+		json_cleanup
+		;;
+	call)
+		case "$2" in
+		getStatus)
+			get_status
+			;;
+		getService)
+			get_service
+			;;
+		getLogs)
+			read -r input
+			json_load "$input"
+			json_get_var limit limit
+			json_cleanup
+			get_logs "$limit"
+			;;
+		checkConfig)
+			check_config
+			;;
+		probe)
+			read -r input
+			json_load "$input"
+			json_get_var name name
+			json_cleanup
+			probe_upstream "$name"
+			;;
+		setServiceAction)
+			read -r input
+			json_load "$input"
+			json_get_var action action
+			json_cleanup
+			set_service_action "$action"
+			;;
+		getDnsmasqIntegration)
+			get_dnsmasq_integration
+			;;
+		setDnsmasqIntegration)
+			read -r input
+			json_load "$input"
+			json_get_var action action
+			json_cleanup
+			set_dnsmasq_integration "$action"
+			;;
+		esac
+		;;
+esac

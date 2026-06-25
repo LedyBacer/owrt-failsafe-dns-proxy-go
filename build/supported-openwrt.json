@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "artifacts": [
+    {
+      "openwrt_version": "24.10.7",
+      "target": "mediatek",
+      "subtarget": "mt7622",
+      "pkgarch": "aarch64_cortex-a53",
+      "package_manager": "opkg",
+      "daemon": {
+        "file": "failsafe-dns-proxy_0.1.0-r12_aarch64_cortex-a53.ipk",
+        "sha256": "0d07cc590ddf5a410b052a31ecff54ce054f54e6a9cd780a1d5c2af08ebb86b4"
+      },
+      "luci": {
+        "file": "luci-app-failsafe-dns-proxy_0.1.0-r3_all.ipk",
+        "sha256": "f35cd2dc3d36f865d98df78ec51caa7ae1100cdc8b37b3ad750469a0698ea36d"
+      },
+      "i18n_ru": {
+        "file": "luci-i18n-failsafe-dns-proxy-ru_0.260625.55965_all.ipk",
+        "sha256": "8f71e116dd76e7cd72f8408f0e6b1b0e410e4328b1ece68ed30affb713501a84"
+      }
+    }
+  ]
+}

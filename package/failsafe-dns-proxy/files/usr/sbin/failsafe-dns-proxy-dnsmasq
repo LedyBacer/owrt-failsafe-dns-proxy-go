@@ -1,0 +1,271 @@
+#!/bin/sh
+
+readonly PROXY_CONFIG="${FDP_PROXY_CONFIG:-/etc/config/failsafe-dns-proxy}"
+readonly STATE_DIR="${FDP_STATE_DIR:-/etc/failsafe-dns-proxy}"
+readonly BACKUP_FILE="${FDP_BACKUP_FILE:-$STATE_DIR/dhcp.before-failsafe-dns-proxy}"
+readonly MARKER_FILE="${FDP_MARKER_FILE:-$STATE_DIR/dnsmasq.integration}"
+readonly UCI="${FDP_UCI_BIN:-uci}"
+readonly PROXY="${FDP_PROXY_BIN:-/usr/sbin/failsafe-dns-proxy}"
+readonly DNSMASQ_INIT="${FDP_DNSMASQ_INIT:-/etc/init.d/dnsmasq}"
+readonly PROXY_INIT="${FDP_PROXY_INIT:-/etc/init.d/failsafe-dns-proxy}"
+readonly NSLOOKUP="${FDP_NSLOOKUP_BIN:-nslookup}"
+readonly VERIFY_ATTEMPTS="${FDP_VERIFY_ATTEMPTS:-20}"
+
+message=""
+
+fail() {
+	message="$1"
+	printf '%s\n' "$message" >&2
+	return 1
+}
+
+main_value() {
+	"$UCI" -q get "failsafe-dns-proxy.main.$1"
+}
+
+dnsmasq_section() {
+	"$UCI" -q show dhcp |
+		sed -n "s/^dhcp\\.\\([^.=]*\\)=dnsmasq$/\\1/p" |
+		head -n 1
+}
+
+proxy_host() {
+	case "$1" in
+		0.0.0.0) printf '%s\n' "127.0.0.1" ;;
+		::) printf '%s\n' "::1" ;;
+		*) printf '%s\n' "$1" ;;
+	esac
+}
+
+proxy_server_value() {
+	local address port
+	address="$(proxy_host "$(main_value listen_addr)")"
+	port="$(main_value listen_port)"
+	case "$address" in
+		*:*) printf '[%s]#%s\n' "$address" "$port" ;;
+		*) printf '%s#%s\n' "$address" "$port" ;;
+	esac
+}
+
+probe_name() {
+	local probe
+	probe="$("$UCI" -q get failsafe-dns-proxy.main.probe | awk '{ print $1 }')"
+	probe="${probe%%:*}"
+	[ -n "$probe" ] || probe="example.com"
+	printf '%s\n' "$probe"
+}
+
+integration_enabled() {
+	[ -s "$MARKER_FILE" ]
+}
+
+run_with_timeout() {
+	local seconds="$1" command_pid watchdog_pid rc
+	shift
+	"$@" &
+	command_pid=$!
+	(
+		sleep "$seconds"
+		kill "$command_pid" 2>/dev/null
+	) &
+	watchdog_pid=$!
+	wait "$command_pid"
+	rc=$?
+	kill "$watchdog_pid" 2>/dev/null
+	wait "$watchdog_pid" 2>/dev/null
+	return "$rc"
+}
+
+dry_run() {
+	local section address port upstream endpoint
+	"$PROXY" check-config --config "$PROXY_CONFIG" >/dev/null ||
+		fail "Failsafe DNS Proxy configuration is invalid." || return 1
+	section="$(dnsmasq_section)"
+	[ -n "$section" ] || fail "No dnsmasq UCI section was found." || return 1
+	address="$(proxy_host "$(main_value listen_addr)")"
+	port="$(main_value listen_port)"
+	case "$address" in
+		127.*|::1) ;;
+		*) fail "The proxy listener must be loopback-only before dnsmasq integration." || return 1 ;;
+	esac
+	endpoint="$address:$port"
+	for upstream in $("$UCI" -q show failsafe-dns-proxy |
+		sed -n "s/^failsafe-dns-proxy\\.\\([^.=]*\\)=upstream$/\\1/p"); do
+		[ "$("$UCI" -q get "failsafe-dns-proxy.$upstream.enabled")" = "0" ] && continue
+		if [ "$("$UCI" -q get "failsafe-dns-proxy.$upstream.address"):$("$UCI" -q get "failsafe-dns-proxy.$upstream.port")" = "$endpoint" ]; then
+			fail "Upstream $upstream points back to the proxy listener and would create a DNS loop." || return 1
+		fi
+	done
+	"$PROXY_INIT" running >/dev/null 2>&1 ||
+		fail "Failsafe DNS Proxy is not running." || return 1
+	"$PROXY" self-test --config "$PROXY_CONFIG" >/dev/null ||
+		fail "Failsafe DNS Proxy self-test failed." || return 1
+	message="Preflight checks passed."
+	return 0
+}
+
+backup_dnsmasq() {
+	mkdir -p "$STATE_DIR" || return 1
+	chmod 700 "$STATE_DIR" || return 1
+	local temporary="$BACKUP_FILE.tmp.$$"
+	"$UCI" export dhcp >"$temporary" || {
+		rm -f "$temporary"
+		return 1
+	}
+	chmod 600 "$temporary" || {
+		rm -f "$temporary"
+		return 1
+	}
+	mv "$temporary" "$BACKUP_FILE"
+}
+
+restore_dnsmasq() {
+	[ -s "$BACKUP_FILE" ] || fail "The dnsmasq backup is missing." || return 1
+	"$UCI" -q revert dhcp >/dev/null 2>&1 || true
+	"$UCI" -q import dhcp <"$BACKUP_FILE" || return 1
+	"$UCI" commit dhcp || return 1
+	"$DNSMASQ_INIT" restart >/dev/null 2>&1 || return 1
+	verify_dnsmasq
+}
+
+verify_dnsmasq() {
+	local attempts=0
+	while [ "$attempts" -lt "$VERIFY_ATTEMPTS" ]; do
+		if "$DNSMASQ_INIT" running >/dev/null 2>&1 &&
+			run_with_timeout 8 "$NSLOOKUP" "$(probe_name)" 127.0.0.1 >/dev/null 2>&1; then
+			return 0
+		fi
+		attempts=$((attempts + 1))
+		sleep 1
+	done
+	return 1
+}
+
+enable_integration() {
+	local section server temporary current
+	if integration_enabled; then
+		verify_dnsmasq || fail "Integration is marked enabled, but dnsmasq verification failed." || return 1
+		message="dnsmasq integration is already enabled."
+		return 0
+	fi
+	dry_run || return 1
+	backup_dnsmasq || fail "Unable to back up the current dnsmasq UCI configuration." || return 1
+	section="$(dnsmasq_section)"
+	server="$(proxy_server_value)"
+	temporary="$MARKER_FILE.tmp.$$"
+	{
+		printf 'section=%s\n' "$section"
+		printf 'server=%s\n' "$server"
+		printf 'enabled_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		printf 'backup_sha256=%s\n' "$(sha256sum "$BACKUP_FILE" | awk '{ print $1 }')"
+	} >"$temporary" || return 1
+	chmod 600 "$temporary" || return 1
+
+	if ! "$UCI" -q batch <<-EOF
+		delete dhcp.$section.server
+		set dhcp.$section.noresolv='1'
+		add_list dhcp.$section.server='$server'
+		commit dhcp
+	EOF
+	then
+		rm -f "$temporary"
+		restore_dnsmasq >/dev/null 2>&1 || true
+		fail "Unable to apply dnsmasq integration."
+		return 1
+	fi
+	if ! "$DNSMASQ_INIT" restart >/dev/null 2>&1 || ! verify_dnsmasq; then
+		restore_dnsmasq >/dev/null 2>&1 || true
+		rm -f "$temporary" "$BACKUP_FILE"
+		fail "dnsmasq verification failed; the previous configuration was restored."
+		return 1
+	fi
+	current="$STATE_DIR/dhcp.integrated.$$"
+	"$UCI" export dhcp >"$current" || {
+		restore_dnsmasq >/dev/null 2>&1 || true
+		rm -f "$temporary" "$BACKUP_FILE" "$current"
+		fail "Unable to record the integrated dnsmasq state."
+		return 1
+	}
+	printf 'integration_sha256=%s\n' "$(sha256sum "$current" | awk '{ print $1 }')" >>"$temporary"
+	rm -f "$current"
+	mv "$temporary" "$MARKER_FILE"
+	message="dnsmasq now uses Failsafe DNS Proxy exclusively."
+}
+
+disable_integration() {
+	local expected current current_file
+	if ! integration_enabled; then
+		message="dnsmasq integration is already disabled."
+		return 0
+	fi
+	expected="$(sed -n 's/^integration_sha256=//p' "$MARKER_FILE" | head -n 1)"
+	current_file="$STATE_DIR/dhcp.current.$$"
+	"$UCI" export dhcp >"$current_file" || return 1
+	current="$(sha256sum "$current_file" | awk '{ print $1 }')"
+	rm -f "$current_file"
+	if [ -n "$expected" ] && [ "$current" != "$expected" ]; then
+		fail "The DHCP configuration changed after integration was enabled; refusing to overwrite newer changes."
+		return 1
+	fi
+	if ! restore_dnsmasq; then
+		fail "Unable to restore the saved dnsmasq configuration."
+		return 1
+	fi
+	rm -f "$MARKER_FILE" "$BACKUP_FILE"
+	message="The previous dnsmasq configuration was restored."
+}
+
+print_status() {
+	local enabled=0 server="" backup=0
+	integration_enabled && enabled=1
+	[ -s "$BACKUP_FILE" ] && backup=1
+	if [ "$enabled" -eq 1 ]; then
+		server="$(sed -n 's/^server=//p' "$MARKER_FILE" | head -n 1)"
+	fi
+	if [ "${1:-}" = "--json" ]; then
+		. /usr/share/libubox/jshn.sh
+		json_init
+		json_add_boolean enabled "$enabled"
+		json_add_boolean backup_present "$backup"
+		json_add_string server "$server"
+		json_add_string message "$message"
+		json_dump
+		json_cleanup
+	else
+		printf 'enabled=%s\nbackup_present=%s\nserver=%s\n' "$enabled" "$backup" "$server"
+	fi
+}
+
+command="${1:-status}"
+json=0
+[ "${2:-}" = "--json" ] && json=1
+case "$command" in
+	status)
+		print_status "$([ "$json" -eq 1 ] && printf '%s' --json)"
+		;;
+	dry-run)
+		if dry_run; then
+			[ "$json" -eq 1 ] && print_status --json || printf '%s\n' "$message"
+		else
+			exit 1
+		fi
+		;;
+	enable)
+		if enable_integration; then
+			[ "$json" -eq 1 ] && print_status --json || printf '%s\n' "$message"
+		else
+			exit 1
+		fi
+		;;
+	disable)
+		if disable_integration; then
+			[ "$json" -eq 1 ] && print_status --json || printf '%s\n' "$message"
+		else
+			exit 1
+		fi
+		;;
+	*)
+		printf 'usage: %s {status|dry-run|enable|disable} [--json]\n' "$0" >&2
+		exit 2
+		;;
+esac

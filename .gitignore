@@ -1,0 +1,3 @@
+/build/*
+!/build/supported-openwrt.json
+/dist/

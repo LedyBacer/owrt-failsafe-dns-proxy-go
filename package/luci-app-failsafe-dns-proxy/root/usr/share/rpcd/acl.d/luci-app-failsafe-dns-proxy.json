@@ -1,0 +1,27 @@
+{
+	"luci-app-failsafe-dns-proxy": {
+		"description": "Grant access to Failsafe DNS Proxy configuration and status",
+		"read": {
+			"ubus": {
+				"luci.failsafe-dns-proxy": [
+					"getStatus",
+					"getService",
+					"getLogs",
+					"getDnsmasqIntegration"
+				]
+			},
+			"uci": [ "failsafe-dns-proxy" ]
+		},
+		"write": {
+			"ubus": {
+				"luci.failsafe-dns-proxy": [
+					"checkConfig",
+					"probe",
+					"setServiceAction",
+					"setDnsmasqIntegration"
+				]
+			},
+			"uci": [ "failsafe-dns-proxy" ]
+		}
+	}
+}

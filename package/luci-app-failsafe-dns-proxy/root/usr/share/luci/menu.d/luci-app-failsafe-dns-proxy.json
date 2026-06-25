@@ -1,0 +1,13 @@
+{
+	"admin/services/failsafe-dns-proxy": {
+		"title": "Failsafe DNS Proxy",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "failsafe-dns-proxy/overview"
+		},
+		"depends": {
+			"acl": [ "luci-app-failsafe-dns-proxy" ]
+		}
+	}
+}

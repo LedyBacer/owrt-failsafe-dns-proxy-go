@@ -1,0 +1,138 @@
+#!/bin/sh
+
+set -u
+
+readonly STATE_DIR="${FDP_SOAK_DIR:-/tmp/failsafe-dns-proxy-soak}"
+readonly PID_FILE="$STATE_DIR/pid"
+readonly SAMPLE_FILE="$STATE_DIR/samples.tsv"
+readonly SUMMARY_FILE="$STATE_DIR/summary"
+readonly PROXY="${FDP_PROXY_BIN:-/usr/sbin/failsafe-dns-proxy}"
+
+running() {
+	[ -s "$PID_FILE" ] || return 1
+	local pid
+	pid="$(cat "$PID_FILE")"
+	kill -0 "$pid" 2>/dev/null
+}
+
+sample() {
+	local now status pid rss goroutines fds heap sys active result
+	now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	status="$("$PROXY" status --json 2>/dev/null)" || status=""
+	pid="$(pidof failsafe-dns-proxy 2>/dev/null | awk '{ print $1 }')"
+	rss=0
+	[ -n "$pid" ] && rss="$(awk '/^VmRSS:/ { print $2 * 1024 }' "/proc/$pid/status" 2>/dev/null)"
+	goroutines="$(printf '%s' "$status" | jsonfilter -e '@.runtime.goroutines' 2>/dev/null)"
+	fds="$(printf '%s' "$status" | jsonfilter -e '@.runtime.open_fds' 2>/dev/null)"
+	heap="$(printf '%s' "$status" | jsonfilter -e '@.runtime.heap_alloc_bytes' 2>/dev/null)"
+	sys="$(printf '%s' "$status" | jsonfilter -e '@.runtime.sys_bytes' 2>/dev/null)"
+	active="$(printf '%s' "$status" | jsonfilter -e '@.active_upstream' 2>/dev/null)"
+	result=0
+	"$PROXY" self-test >/dev/null 2>&1 || result=1
+	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$now" "${rss:-0}" "${goroutines:-0}" "${fds:-0}" "${heap:-0}" "${sys:-0}" "${active:--}" "$result" >>"$SAMPLE_FILE"
+}
+
+run_monitor() {
+	local duration="$1" interval="$2" started now
+	trap 'rm -f "$PID_FILE"; exit 0' INT TERM EXIT
+	mkdir -p "$STATE_DIR"
+	if [ ! -s "$SAMPLE_FILE" ]; then
+		printf 'timestamp\trss_bytes\tgoroutines\topen_fds\theap_alloc_bytes\tsys_bytes\tactive_upstream\tself_test_failed\n' >"$SAMPLE_FILE"
+	fi
+	echo "$$" >"$PID_FILE"
+	printf 'started_at=%s\nduration_seconds=%s\ninterval_seconds=%s\n' \
+		"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$duration" "$interval" >"$SUMMARY_FILE"
+	started="$(date +%s)"
+	while :; do
+		sample
+		now="$(date +%s)"
+		[ "$duration" -eq 0 ] || [ $((now - started)) -lt "$duration" ] || break
+		sleep "$interval"
+	done
+	report >>"$SUMMARY_FILE" 2>&1 || true
+	rm -f "$PID_FILE"
+	trap - INT TERM EXIT
+}
+
+start_monitor() {
+	local hours="${1:-168}" interval="${2:-60}" duration
+	case "$hours:$interval" in
+		*[!0-9:]*|:*) echo "hours and interval must be non-negative integers" >&2; return 2 ;;
+	esac
+	running && {
+		echo "soak monitor is already running"
+		return 0
+	}
+	duration=$((hours * 3600))
+	mkdir -p "$STATE_DIR"
+	rm -f "$SAMPLE_FILE" "$SUMMARY_FILE" "$PID_FILE"
+	printf 'timestamp\trss_bytes\tgoroutines\topen_fds\theap_alloc_bytes\tsys_bytes\tactive_upstream\tself_test_failed\n' >"$SAMPLE_FILE"
+	start-stop-daemon -S -b -m -p "$PID_FILE" -x "$0" -- run "$duration" "$interval"
+	sleep 1
+	running || {
+		echo "unable to start soak monitor" >&2
+		return 1
+	}
+	echo "soak monitor started; report: $0 report"
+}
+
+report() {
+	[ -s "$SAMPLE_FILE" ] || {
+		echo "no soak samples"
+		return 1
+	}
+	awk -F '\t' '
+		NR == 2 {
+			first_rss=$2; first_g=$3; first_fd=$4
+			min_rss=max_rss=$2; min_g=max_g=$3; min_fd=max_fd=$4
+		}
+		NR > 1 {
+			last_rss=$2; last_g=$3; last_fd=$4
+			if ($2 < min_rss) min_rss=$2
+			if ($2 > max_rss) max_rss=$2
+			if ($3 < min_g) min_g=$3
+			if ($3 > max_g) max_g=$3
+			if ($4 < min_fd) min_fd=$4
+			if ($4 > max_fd) max_fd=$4
+			failures += $8
+			samples++
+		}
+		END {
+			printf "samples=%d\nself_test_failures=%d\n", samples, failures
+			printf "rss_first=%d\nrss_last=%d\nrss_min=%d\nrss_max=%d\nrss_growth=%d\n", first_rss, last_rss, min_rss, max_rss, last_rss-first_rss
+			printf "goroutines_first=%d\ngoroutines_last=%d\ngoroutines_min=%d\ngoroutines_max=%d\ngoroutines_growth=%d\n", first_g, last_g, min_g, max_g, last_g-first_g
+			printf "fds_first=%d\nfds_last=%d\nfds_min=%d\nfds_max=%d\nfds_growth=%d\n", first_fd, last_fd, min_fd, max_fd, last_fd-first_fd
+			if (failures > 0 || last_g-first_g > 8 || last_fd-first_fd > 4)
+				exit 1
+		}
+	' "$SAMPLE_FILE"
+}
+
+case "${1:-status}" in
+	start) start_monitor "${2:-168}" "${3:-60}" ;;
+	run) run_monitor "$2" "$3" ;;
+	stop)
+		if running; then
+			pid="$(cat "$PID_FILE")"
+			kill "$pid"
+			attempts=0
+			while kill -0 "$pid" 2>/dev/null && [ "$attempts" -lt 5 ]; do
+				attempts=$((attempts + 1))
+				sleep 1
+			done
+			echo "soak monitor stopped"
+		else
+			echo "soak monitor is not running"
+		fi
+		;;
+	status)
+		if running; then
+			echo "running pid=$(cat "$PID_FILE") samples=$(($(wc -l <"$SAMPLE_FILE") - 1))"
+		else
+			echo "stopped"
+		fi
+		;;
+	report) report ;;
+	*) echo "usage: $0 {start [hours] [interval_seconds]|status|stop|report}" >&2; exit 2 ;;
+esac

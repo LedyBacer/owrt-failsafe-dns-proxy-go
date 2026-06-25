@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Format
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Unit and integration tests
+        run: go test ./...
+      - name: Race detector
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Fuzz smoke
+        run: go test ./internal/upstream -run '^$' -fuzz FuzzValidateResponse -fuzztime 10s
+
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Shell checks
+        run: |
+          shellcheck -s bash -e SC1091,SC2034,SC2153,SC2154 scripts/*.sh scripts/lib/*.sh \
+            package/failsafe-dns-proxy/files/etc/init.d/failsafe-dns-proxy \
+            package/failsafe-dns-proxy/files/usr/sbin/failsafe-dns-proxy-dnsmasq \
+            package/failsafe-dns-proxy/files/usr/sbin/failsafe-dns-proxy-soak \
+            package/luci-app-failsafe-dns-proxy/root/usr/libexec/rpcd/luci.failsafe-dns-proxy
+      - name: LuCI JavaScript syntax
+        run: node --check package/luci-app-failsafe-dns-proxy/htdocs/luci-static/resources/view/failsafe-dns-proxy/overview.js
+      - name: JSON syntax
+        run: |
+          python3 -m json.tool build/supported-openwrt.json >/dev/null
+          python3 -m json.tool package/luci-app-failsafe-dns-proxy/root/usr/share/luci/menu.d/luci-app-failsafe-dns-proxy.json >/dev/null
+          python3 -m json.tool package/luci-app-failsafe-dns-proxy/root/usr/share/rpcd/acl.d/luci-app-failsafe-dns-proxy.json >/dev/null
+      - name: Shell integration tests
+        run: tests/shell/run.sh
+
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build OpenWrt 24.10.7 packages
+        run: ./scripts/build-openwrt-24.10.7-ax6s.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-24.10.7-mediatek-mt7622
+          path: dist/
+          if-no-files-found: error

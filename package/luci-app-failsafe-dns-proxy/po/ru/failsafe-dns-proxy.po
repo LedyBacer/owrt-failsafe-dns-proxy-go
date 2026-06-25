@@ -1,0 +1,190 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-failsafe-dns-proxy\n"
+"Language: ru\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Failsafe DNS Proxy"
+msgstr "Резервный DNS-прокси"
+
+msgid "Strict-priority DNS failover with active health checks and automatic failback."
+msgstr "DNS failover со строгим приоритетом, активными проверками и автоматическим возвратом."
+
+msgid "General settings"
+msgstr "Общие настройки"
+
+msgid "Enable service"
+msgstr "Включить сервис"
+
+msgid "Listen address"
+msgstr "Адрес прослушивания"
+
+msgid "Listen port"
+msgstr "Порт прослушивания"
+
+msgid "Attempt timeout (ms)"
+msgstr "Таймаут попытки (мс)"
+
+msgid "Total request timeout (ms)"
+msgstr "Общий таймаут запроса (мс)"
+
+msgid "Health check interval (s)"
+msgstr "Интервал проверки состояния (с)"
+
+msgid "Failure threshold"
+msgstr "Порог ошибок"
+
+msgid "Recovery threshold"
+msgstr "Порог восстановления"
+
+msgid "Maximum concurrent requests"
+msgstr "Максимум одновременных запросов"
+
+msgid "Probe questions"
+msgstr "Проверочные DNS-запросы"
+
+msgid "Use the format domain:A or domain:AAAA."
+msgstr "Формат: domain:A или domain:AAAA."
+
+msgid "Expected domain:A or domain:AAAA"
+msgstr "Ожидается domain:A или domain:AAAA"
+
+msgid "Upstreams"
+msgstr "Вышестоящие DNS-серверы"
+
+msgid "Upstreams are tried by ascending numeric priority."
+msgstr "Серверы проверяются по возрастанию числового приоритета."
+
+msgid "Enabled"
+msgstr "Включён"
+
+msgid "Priority"
+msgstr "Приоритет"
+
+msgid "Protocol"
+msgstr "Протокол"
+
+msgid "IP address"
+msgstr "IP-адрес"
+
+msgid "Port"
+msgstr "Порт"
+
+msgid "Test"
+msgstr "Проверить"
+
+msgid "Runtime status"
+msgstr "Текущее состояние"
+
+msgid "Service"
+msgstr "Сервис"
+
+msgid "Active upstream"
+msgstr "Активный DNS-сервер"
+
+msgid "Start"
+msgstr "Запустить"
+
+msgid "Restart"
+msgstr "Перезапустить"
+
+msgid "Stop"
+msgstr "Остановить"
+
+msgid "Check configuration"
+msgstr "Проверить конфигурацию"
+
+msgid "Name"
+msgstr "Имя"
+
+msgid "Endpoint"
+msgstr "Адрес"
+
+msgid "State"
+msgstr "Состояние"
+
+msgid "Failures"
+msgstr "Ошибки"
+
+msgid "Latency"
+msgstr "Задержка"
+
+msgid "Last success"
+msgstr "Последний успех"
+
+msgid "Last error"
+msgstr "Последняя ошибка"
+
+msgid "Operational log"
+msgstr "Журнал переключений"
+
+msgid "dnsmasq integration"
+msgstr "Интеграция с dnsmasq"
+
+msgid "Integration is explicit and reversible. The current dnsmasq configuration is backed up and automatically restored if verification fails."
+msgstr "Интеграция выполняется явно и обратимо. Текущая конфигурация dnsmasq сохраняется и автоматически восстанавливается, если проверка завершается ошибкой."
+
+msgid "Enabled: dnsmasq uses %s"
+msgstr "Включено: dnsmasq использует %s"
+
+msgid "Disabled: dnsmasq configuration is unchanged"
+msgstr "Отключено: конфигурация dnsmasq не изменена"
+
+msgid "Dry run"
+msgstr "Предварительная проверка"
+
+msgid "Enable integration"
+msgstr "Включить интеграцию"
+
+msgid "Disable and restore"
+msgstr "Отключить и восстановить"
+
+msgid "Preflight checks passed."
+msgstr "Предварительные проверки пройдены."
+
+msgid "dnsmasq integration enabled."
+msgstr "Интеграция с dnsmasq включена."
+
+msgid "dnsmasq integration disabled."
+msgstr "Интеграция с dnsmasq отключена."
+
+msgid "Running, version %s"
+msgstr "Работает, версия %s"
+
+msgid "Stopped"
+msgstr "Остановлен"
+
+msgid "Stopped and disabled"
+msgstr "Остановлен и отключён"
+
+msgid "Unknown"
+msgstr "Неизвестно"
+
+msgid "Healthy"
+msgstr "Работает"
+
+msgid "Suspect"
+msgstr "Подозрение на сбой"
+
+msgid "Down"
+msgstr "Недоступен"
+
+msgid "Recovering"
+msgstr "Восстанавливается"
+
+msgid "No runtime status available."
+msgstr "Текущее состояние недоступно."
+
+msgid "No operational log entries."
+msgstr "Записей о переключениях пока нет."
+
+msgid "Configuration is valid"
+msgstr "Конфигурация корректна"
+
+msgid "Operation failed"
+msgstr "Операция завершилась ошибкой"
+
+msgid "Unknown error"
+msgstr "Неизвестная ошибка"
