@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "targets": [
+    {
+      "openwrt_version": "24.10.7",
+      "target": "mediatek",
+      "subtarget": "mt7622",
+      "pkgarch": "aarch64_cortex-a53",
+      "package_manager": "opkg",
+      "tested_on_hardware": true
+    },
+    {
+      "openwrt_version": "25.12.4",
+      "target": "mediatek",
+      "subtarget": "mt7622",
+      "pkgarch": "aarch64_cortex-a53",
+      "package_manager": "apk",
+      "tested_on_hardware": false
+    }
+  ]
+}

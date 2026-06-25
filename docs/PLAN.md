@@ -35,11 +35,17 @@
 
 ### P2 — после стабилизации MVP
 
-- [ ] release manifest и GitHub Actions release pipeline;
-- [ ] APK/OpenWrt 25.12+;
-- [ ] расширенная matrix targets;
+- [x] release manifest и GitHub Actions release pipeline: reusable build,
+  version-tag release, exact metadata, checksums и self-contained installer;
+- [x] APK/OpenWrt 25.12+: smoke build выполнен официальным SDK OpenWrt 25.12.4
+  для `mediatek/mt7622`;
+- [x] default release matrix ограничена `mediatek/mt7622` для OpenWrt 24.10.7
+  и 25.12.4; остальные комбинации собираются пользователями через
+  `build-one.yml`;
 - [ ] native encrypted transports и loop-safe hostname bootstrap;
-- [ ] дополнительные LuCI локализации.
+
+Дополнительные LuCI-локализации исключены из roadmap. Поддерживаются английская
+база и русский пакет.
 
 ## Статус первого MVP
 
@@ -71,8 +77,26 @@
   сохранился, installer выбрал точный artifact и проверил SHA-256;
 - [x] короткий stress-soak: 120 запросов, 0 ошибок, goroutine 10→9, FD 11→10;
 - [x] измерение на роутере: RSS около 5.5 MiB, бинарник около 4.9 MiB.
+- [x] автоматические official-SDK сборки IPK/OpenWrt 24.10.7 и
+  APK/OpenWrt 25.12.4;
+- [x] release workflow с exact manifest, SHA-256 и pinned GitHub Actions.
 
-Текущий этап: автономный 7-дневный домашний soak, затем анализ отчёта и P2.
+Текущий этап: автономный 7-дневный домашний soak и первый запуск release
+workflow в GitHub.
+
+## Обязательное внимание перед публичным stable release
+
+- [ ] завершить 7-дневный soak и сохранить итоговые измерения;
+- [ ] выполнить первый реальный `ci.yml` и `release.yml` в GitHub после push;
+- [ ] проверить установку, upgrade и remove APK на OpenWrt 25.12 hardware или
+  полноценном образе;
+- [ ] выполнить desktop/mobile визуальную приёмку LuCI;
+- [ ] проверить фактический размер GitHub Actions SDK caches и при
+  необходимости разделить download cache и build cache.
+
+Сейчас не обнаружено известной поломки основного AX6S/OpenWrt 24.10 сценария.
+Перечисленные пункты являются пробелами подтверждения, а не заявленной
+неработоспособностью.
 
 ## 0. Зафиксированные решения
 
@@ -248,7 +272,7 @@ package/luci-app-failsafe-dns-proxy/
 - [x] OpenWrt Go package Makefile;
 - [x] reproducible flags: `-trimpath`, stripped symbols, version metadata;
 - [x] IPK smoke build daemon/LuCI/i18n на 24.10;
-- [ ] APK smoke build на 25.12;
+- [x] APK smoke build daemon/LuCI/i18n на 25.12.4;
 - [x] package content assertions;
 - [x] install/remove/upgrade tests на AX6S с сохранением UCI и dnsmasq.
 
@@ -270,7 +294,8 @@ package/luci-app-failsafe-dns-proxy/
 - [x] fuzz smoke;
 - [x] shellcheck;
 - [x] LuCI/static checks;
-- [x] официальный OpenWrt SDK package smoke build.
+- [x] Markdown и GitHub Actions lint;
+- [x] официальный OpenWrt SDK package smoke build для IPK и APK.
 
 ### `build-one.yml`
 
@@ -293,34 +318,36 @@ Reusable workflow:
 - проверяет checksum;
 - кэширует SDK по version/target/subtarget/checksum;
 - устанавливает feeds;
-- собирает package без подавления ошибок;
+- собирает daemon, LuCI и русскую локализацию без подавления ошибок;
 - проверяет содержимое;
-- возвращает artifacts и metadata.
+- возвращает packages, checksums и exact build metadata.
 
 ### `release.yml`
 
 - запускается по version tag проекта;
-- читает `build/supported-openwrt.json`;
-- получает все target/subtarget для каждой поддерживаемой версии;
-- вычисляет package architecture;
-- дедуплицирует daemon jobs по `version + pkgarch`;
-- отдельно собирает `Architecture: all` LuCI;
+- читает `build/release-targets.json`;
+- запускает две exact-сборки `mediatek/mt7622` для OpenWrt 24.10.7 и 25.12.4;
+- получает package architecture из официального `profiles.json`;
 - формирует `manifest.json`, `SHA256SUMS` и release notes;
-- публикует IPK/APK.
+- добавляет self-contained `install.sh`;
+- публикует IPK/APK только после успешного завершения всей matrix.
 
-### `refresh-openwrt.yml`
+Расширение default release matrix на другие устройства не планируется:
+владельцы других платформ используют ручной `build-one.yml` в своём fork.
 
-- периодически проверяет новые stable patch releases;
-- валидирует SDK indexes;
-- обновляет supported manifest через pull request;
-- не публикует поддержку автоматически без успешной сборки.
+Автоматическое обновление OpenWrt patch versions через pull request остаётся
+отдельной будущей задачей. Поддержка новой версии не публикуется автоматически.
 
 Критерии готовности:
 
 - manual build работает для одного target/subtarget;
-- release содержит все уникальные package architectures;
+- release содержит IPK и APK для двух заявленных AX6S combinations;
 - каждый artifact перечислен в manifest и checksum;
 - failed matrix job делает release неуспешным.
+
+Ограничение проверки: workflow и release tooling прошли локальный lint/smoke,
+но первая реальная публикация GitHub Release возможна только после push и
+создания version tag.
 
 ## 9. Installer
 
@@ -393,13 +420,11 @@ Reusable workflow:
 `network:<interface>`, который безопасно читает DNS, полученный WAN по DHCP, и
 обновляет список без DNS loop.
 
-## 12. Решения, которые нужно подтвердить перед кодом
+## 12. Подтверждённые продуктовые решения
 
-1. Default listener port: оставить `5359` как на исходном приложении или выбрать
-   другой.
-2. Default passive policy: помечать `down` после первого timeout или после двух
-   последовательных ошибок.
-3. Нужен ли dynamic ISP DNS из WAN DHCP уже в MVP.
-4. Должен ли installer по умолчанию ставить только daemon или daemon + LuCI.
-5. Нужны ли OpenWrt forks в первой публичной версии или только официальный
-   OpenWrt.
+1. Default listener port — `5359`.
+2. Default failure threshold — две подтверждённые ошибки.
+3. Dynamic ISP DNS из WAN DHCP отложен после MVP.
+4. Installer по умолчанию ставит daemon, LuCI и русскую локализацию;
+   `--daemon-only` и `--no-russian` доступны явно.
+5. Первая публичная версия поддерживает только официальный OpenWrt.

@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      targets: ${{ steps.matrix.outputs.targets }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - id: matrix
+        run: echo "targets=$(./scripts/release-matrix.py)" >>"$GITHUB_OUTPUT"
+      - id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          package_version="$(sed -n 's/^PKG_VERSION:=//p' package/failsafe-dns-proxy/Makefile)"
+          test "$tag" = "v${package_version}"
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: matrix
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    uses: ./.github/workflows/build-openwrt.yml
+    with:
+      openwrt_version: ${{ matrix.openwrt_version }}
+      target: ${{ matrix.target }}
+      subtarget: ${{ matrix.subtarget }}
+      source_ref: ${{ needs.matrix.outputs.tag }}
+
+  publish:
+    needs: [matrix, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.matrix.outputs.tag }}
+      - name: Download build artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: openwrt-*
+          path: ${{ runner.temp }}/incoming
+      - name: Assemble release
+        run: |
+          ./scripts/assemble-release.py \
+            --input '${{ runner.temp }}/incoming' \
+            --output '${{ runner.temp }}/release' \
+            --tag '${{ needs.matrix.outputs.tag }}' \
+            --installer scripts/install.sh
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.matrix.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            '${{ runner.temp }}/release/'* \
+            --verify-tag \
+            --generate-notes \
+            --title "$TAG"

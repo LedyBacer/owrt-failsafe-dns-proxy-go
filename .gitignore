@@ -1,3 +1,4 @@
 /build/*
 !/build/supported-openwrt.json
+!/build/release-targets.json
 /dist/

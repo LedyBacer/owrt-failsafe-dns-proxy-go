@@ -1,0 +1,72 @@
+name: Reusable OpenWrt build
+
+on:
+  workflow_call:
+    inputs:
+      openwrt_version:
+        required: true
+        type: string
+      target:
+        required: true
+        type: string
+      subtarget:
+        required: true
+        type: string
+      publish_artifact:
+        required: false
+        default: true
+        type: boolean
+      source_ref:
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+    inputs:
+      openwrt_version:
+        required: true
+        default: 25.12.4
+        type: string
+      target:
+        required: true
+        default: mediatek
+        type: string
+      subtarget:
+        required: true
+        default: mt7622
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
+      - name: Restore SDK cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            build/downloads
+            build/openwrt-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}
+          key: openwrt-sdk-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-${{ hashFiles('package/**', 'go.mod', 'go.sum', 'scripts/build-openwrt.sh') }}
+          restore-keys: |
+            openwrt-sdk-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-
+      - name: Build packages
+        run: |
+          ./scripts/build-openwrt.sh \
+            '${{ inputs.openwrt_version }}' \
+            '${{ inputs.target }}' \
+            '${{ inputs.subtarget }}' \
+            '${{ runner.temp }}/packages'
+      - name: Upload packages
+        if: inputs.publish_artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: openwrt-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}
+          path: ${{ runner.temp }}/packages/
+          if-no-files-found: error
+          retention-days: 14

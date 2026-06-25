@@ -29,23 +29,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate supported exact combination
-        env:
-          VERSION: ${{ inputs.openwrt_version }}
-          TARGET: ${{ inputs.target }}
-          SUBTARGET: ${{ inputs.subtarget }}
-        run: |
-          test "$VERSION" = 24.10.7
-          test "$TARGET" = mediatek
-          test "$SUBTARGET" = mt7622
-      - name: Build
-        run: ./scripts/build-openwrt-24.10.7-ax6s.sh
-      - uses: actions/upload-artifact@v4
-        if: ${{ inputs.publish_artifact }}
-        with:
-          name: openwrt-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}
-          path: dist/
-          if-no-files-found: error
+    uses: ./.github/workflows/build-openwrt.yml
+    with:
+      openwrt_version: ${{ inputs.openwrt_version }}
+      target: ${{ inputs.target }}
+      subtarget: ${{ inputs.subtarget }}
+      publish_artifact: ${{ inputs.publish_artifact }}

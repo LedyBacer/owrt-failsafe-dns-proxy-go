@@ -12,8 +12,8 @@ jobs:
   go:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: true
@@ -31,7 +31,7 @@ jobs:
   static:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Shell checks
@@ -43,22 +43,33 @@ jobs:
             package/luci-app-failsafe-dns-proxy/root/usr/libexec/rpcd/luci.failsafe-dns-proxy
       - name: LuCI JavaScript syntax
         run: node --check package/luci-app-failsafe-dns-proxy/htdocs/luci-static/resources/view/failsafe-dns-proxy/overview.js
+      - name: Markdown lint
+        run: npx --yes markdownlint-cli2@0.22.1 README.md docs/PLAN.md AGENTS.md
+      - name: Workflow lint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9
       - name: JSON syntax
         run: |
           python3 -m json.tool build/supported-openwrt.json >/dev/null
+          python3 -m json.tool build/release-targets.json >/dev/null
           python3 -m json.tool package/luci-app-failsafe-dns-proxy/root/usr/share/luci/menu.d/luci-app-failsafe-dns-proxy.json >/dev/null
           python3 -m json.tool package/luci-app-failsafe-dns-proxy/root/usr/share/rpcd/acl.d/luci-app-failsafe-dns-proxy.json >/dev/null
+      - name: Python syntax
+        run: python3 -m compileall -q scripts
+      - name: Release tooling tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Shell integration tests
         run: tests/shell/run.sh
 
-  package:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build OpenWrt 24.10.7 packages
-        run: ./scripts/build-openwrt-24.10.7-ax6s.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: openwrt-24.10.7-mediatek-mt7622
-          path: dist/
-          if-no-files-found: error
+  package-ipk:
+    uses: ./.github/workflows/build-openwrt.yml
+    with:
+      openwrt_version: 24.10.7
+      target: mediatek
+      subtarget: mt7622
+
+  package-apk:
+    uses: ./.github/workflows/build-openwrt.yml
+    with:
+      openwrt_version: 25.12.4
+      target: mediatek
+      subtarget: mt7622
