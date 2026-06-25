@@ -44,7 +44,7 @@ jobs:
       - name: LuCI JavaScript syntax
         run: node --check package/luci-app-failsafe-dns-proxy/htdocs/luci-static/resources/view/failsafe-dns-proxy/overview.js
       - name: Markdown lint
-        run: npx --yes markdownlint-cli2@0.22.1 README.md docs/PLAN.md AGENTS.md
+        run: npx --yes markdownlint-cli2@0.22.1
       - name: Workflow lint
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9
       - name: JSON syntax
