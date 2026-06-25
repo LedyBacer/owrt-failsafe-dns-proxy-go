@@ -31,6 +31,11 @@ if [[ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]]; then
 	exit 2
 fi
 
+# OpenWrt builds each required Go toolchain from source. Prevent bootstrap Go
+# binaries from interpreting nested go.mod files as a request to download an
+# intermediate toolchain, which is unavailable for versions such as go1.23.0.
+export GOTOOLCHAIN=local
+
 mkdir -p "$download_dir" "$work_dir" "$output_dir"
 sha256sums="${work_dir}/sha256sums"
 profiles="${work_dir}/profiles.json"

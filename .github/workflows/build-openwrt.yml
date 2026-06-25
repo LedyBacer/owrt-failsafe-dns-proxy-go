@@ -42,6 +42,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -52,9 +54,9 @@ jobs:
           path: |
             build/downloads
             build/openwrt-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}
-          key: openwrt-sdk-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-${{ hashFiles('package/**', 'go.mod', 'go.sum', 'scripts/build-openwrt.sh') }}
+          key: openwrt-sdk-v2-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-${{ hashFiles('package/**', 'go.mod', 'go.sum', 'scripts/build-openwrt.sh') }}
           restore-keys: |
-            openwrt-sdk-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-
+            openwrt-sdk-v2-${{ inputs.openwrt_version }}-${{ inputs.target }}-${{ inputs.subtarget }}-
       - name: Build packages
         run: |
           ./scripts/build-openwrt.sh \
