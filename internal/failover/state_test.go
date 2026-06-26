@@ -169,6 +169,28 @@ func TestPassiveSuccessWhileDownDoesNotDeadlock(t *testing.T) {
 	}
 }
 
+func TestPassiveSuccessWhileDownDoesNotCountTowardRecovery(t *testing.T) {
+	m := testManager()
+	now := time.Unix(100, 0)
+	m.RecordFailure("primary", "timeout", now)
+	m.RecordFailure("primary", "timeout", now.Add(time.Second))
+
+	m.RecordSuccess("primary", false, time.Millisecond, now.Add(2*time.Second))
+	m.RecordSuccess("primary", true, time.Millisecond, now.Add(3*time.Second))
+
+	snapshot := m.Snapshots()[0]
+	if snapshot.State != Recovering {
+		t.Fatalf("state after passive success plus one probe = %s, want recovering", snapshot.State)
+	}
+	if snapshot.ConsecutiveSuccess != 1 {
+		t.Fatalf("recovery successes = %d, want 1", snapshot.ConsecutiveSuccess)
+	}
+	m.RecordSuccess("primary", true, time.Millisecond, now.Add(4*time.Second))
+	if got := m.Snapshots()[0].State; got != Healthy {
+		t.Fatalf("state after second probe = %s, want healthy", got)
+	}
+}
+
 func TestEmergencyHalfOpen(t *testing.T) {
 	m := testManager()
 	now := time.Now()

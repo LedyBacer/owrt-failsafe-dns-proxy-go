@@ -9,11 +9,11 @@ config main 'main'
         option enabled '0'
         option listen_addr '127.0.0.1'
         option listen_port '5359'
-        option attempt_timeout_ms '700'
-        option request_timeout_ms '2000'
-        option health_interval_s '5'
-        option fail_threshold '2'
-        option recover_threshold '2'
+        option attempt_timeout_ms '1500'
+        option request_timeout_ms '5000'
+        option health_interval_s '10'
+        option fail_threshold '3'
+        option recover_threshold '3'
         option max_concurrent '128'
         option status_socket '/var/run/failsafe-dns-proxy.sock'
         list probe 'example.com:A'
@@ -47,11 +47,11 @@ config upstream 'public_fallback'
 | --- | ---: | --- |
 | `listen_addr` | `127.0.0.1` | адрес listener; loopback безопасен для схемы с dnsmasq |
 | `listen_port` | `5359` | UDP и TCP порт proxy |
-| `attempt_timeout_ms` | `700` | максимум одной попытки к upstream |
-| `request_timeout_ms` | `2000` | общий бюджет запроса со всеми fallback |
-| `health_interval_s` | `5` | базовый интервал active probes |
-| `fail_threshold` | `2` | число подтверждённых ошибок до состояния `down` |
-| `recover_threshold` | `2` | число успешных probes до восстановления |
+| `attempt_timeout_ms` | `1500` | максимум одной попытки к upstream |
+| `request_timeout_ms` | `5000` | общий бюджет запроса со всеми fallback |
+| `health_interval_s` | `10` | базовый интервал active probes |
+| `fail_threshold` | `3` | число подтверждённых ошибок до состояния `down` |
+| `recover_threshold` | `3` | число успешных probes до восстановления |
 | `max_concurrent` | `128` | общий предел одновременно обрабатываемых запросов |
 | `probe` | два DNS-вопроса | вопросы для фоновой проверки транспорта |
 | `priority` | `10`, `20` | меньшее число означает более высокий приоритет |

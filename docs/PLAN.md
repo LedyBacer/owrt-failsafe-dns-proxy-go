@@ -32,6 +32,11 @@
   запросы на менее приоритетный ISP fallback;
 - [x] исправлен deadlock status/request path после passive success в emergency
   path для upstream в состоянии `down`/`recovering`;
+- [x] passive success в `down`/`recovering` больше не засчитывается как
+  recovery probe, чтобы не делать преждевременный failback на flapping DoH
+  upstream;
+- [x] дефолтные timeout/threshold значения смягчены для локального DoH под
+  burst-нагрузкой: 1500/5000 ms, health interval 10 s, thresholds 3/3;
 
 ### P1 — важно для управляемого домашнего использования
 

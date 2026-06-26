@@ -9,11 +9,11 @@ config main 'main'
         option enabled '0'
         option listen_addr '127.0.0.1'
         option listen_port '5359'
-        option attempt_timeout_ms '700'
-        option request_timeout_ms '2000'
-        option health_interval_s '5'
-        option fail_threshold '2'
-        option recover_threshold '2'
+        option attempt_timeout_ms '1500'
+        option request_timeout_ms '5000'
+        option health_interval_s '10'
+        option fail_threshold '3'
+        option recover_threshold '3'
         option max_concurrent '128'
         option status_socket '/var/run/failsafe-dns-proxy.sock'
         list probe 'example.com:A'
@@ -47,11 +47,11 @@ On the test AX6S the same layout is used, but the daemon is enabled:
 | --- | ---: | --- |
 | `listen_addr` | `127.0.0.1` | listener address; loopback is safe with dnsmasq |
 | `listen_port` | `5359` | UDP and TCP proxy port |
-| `attempt_timeout_ms` | `700` | maximum time for one upstream attempt |
-| `request_timeout_ms` | `2000` | total request budget including all fallbacks |
-| `health_interval_s` | `5` | base active probe interval |
-| `fail_threshold` | `2` | confirmed failures before `down` |
-| `recover_threshold` | `2` | successful probes before recovery |
+| `attempt_timeout_ms` | `1500` | maximum time for one upstream attempt |
+| `request_timeout_ms` | `5000` | total request budget including all fallbacks |
+| `health_interval_s` | `10` | base active probe interval |
+| `fail_threshold` | `3` | confirmed failures before `down` |
+| `recover_threshold` | `3` | successful probes before recovery |
 | `max_concurrent` | `128` | global concurrent request limit |
 | `probe` | two DNS questions | background transport health checks |
 | `priority` | `10`, `20` | lower number means higher priority |
