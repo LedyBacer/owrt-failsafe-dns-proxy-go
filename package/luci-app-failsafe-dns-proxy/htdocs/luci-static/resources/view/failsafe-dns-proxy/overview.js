@@ -151,6 +151,15 @@ function notifyResult(result, successText) {
 	return refreshRuntime();
 }
 
+function normalizedProbeValues(value) {
+	const values = Array.isArray(value) ? value : [ value ];
+	return values.map(function(item) {
+		return (item || '').trim();
+	}).filter(function(item) {
+		return item !== '';
+	});
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -219,14 +228,15 @@ return view.extend({
 			_('Use the format domain:A or domain:AAAA.'));
 		o.rmempty = false;
 		o.validate = function(sectionId, value) {
-			const values = Array.isArray(value) ? value : [ value ];
-			for (let i = 0; i < values.length; i++) {
-				const item = (values[i] || '').trim();
-				if (!item || !/^[^:\s]+:(A|AAAA)$/i.test(item))
+			const currentValues = normalizedProbeValues(value);
+			const values = typeof this.formvalue === 'function'
+				? normalizedProbeValues(this.formvalue(sectionId))
+				: normalizedProbeValues(value);
+			if (currentValues.length === 0)
+				return values.length > 0 ? true : _('Expected domain:A or domain:AAAA');
+			for (let i = 0; i < currentValues.length; i++)
+				if (!/^[^:\s]+:(A|AAAA)$/i.test(currentValues[i]))
 					return _('Expected domain:A or domain:AAAA');
-			}
-			if (values.length === 0)
-				return _('Expected domain:A or domain:AAAA');
 			return true;
 		};
 

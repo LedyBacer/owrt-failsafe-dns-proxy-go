@@ -240,6 +240,8 @@ workflow в GitHub.
 - [x] LuCI controls clarified and fixed: upstream test button works from edit
   dialogs, probe DynamicList validates each entry, runtime/autostart actions
   are context-aware, and empty log/layout spacing is readable;
+- [x] LuCI probe DynamicList save regression fixed: the empty add-row no longer
+  fails validation when existing probe questions are valid;
 - [x] operational log viewer;
 - [x] отдельный блок управления интеграцией dnsmasq;
 - [x] narrow rpcd exec API и least-privilege ACL;
