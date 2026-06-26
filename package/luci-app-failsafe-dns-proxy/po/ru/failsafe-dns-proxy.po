@@ -123,6 +123,9 @@ msgstr "Задержка"
 msgid "Last success"
 msgstr "Последний успех"
 
+msgid "Last failure"
+msgstr "Последняя ошибка по времени"
+
 msgid "Last error"
 msgstr "Последняя ошибка"
 

@@ -170,6 +170,7 @@ function updateRuntime(status, service, logs, integration) {
 				upstream.consecutive_failures || 0,
 				upstream.last_latency_ns ? (upstream.last_latency_ns / 1000000).toFixed(1) + ' ms' : '-',
 				formatTime(upstream.last_success),
+				formatTime(upstream.last_failure),
 				upstream.last_error || '-'
 			];
 		});
@@ -466,6 +467,7 @@ return view.extend({
 						E('th', { class: 'th' }, _('Failures')),
 						E('th', { class: 'th' }, _('Latency')),
 						E('th', { class: 'th' }, _('Last success')),
+						E('th', { class: 'th' }, _('Last failure')),
 						E('th', { class: 'th' }, _('Last error'))
 					])
 				])

@@ -65,16 +65,24 @@ get_service() {
 }
 
 get_logs() {
-	local limit="$1" line log_file
+	local limit="$1" line log_file error_file
 	case "$limit" in
 		''|*[!0-9]*) limit=100 ;;
 	esac
 	[ "$limit" -lt 20 ] && limit=20
 	[ "$limit" -gt 300 ] && limit=300
 	log_file="/tmp/failsafe-dns-proxy-log.$$"
-	logread -e "$package_name" | grep -E \
-		'upstream failure detected|upstream unavailable|upstream recovery detected|upstream recovered|active upstream changed|emergency DNS path (enabled|disabled)' |
-		tail -n "$limit" >"$log_file" 2>/dev/null
+	error_file="/tmp/failsafe-dns-proxy-log-error.$$"
+	if ! logread -e "$package_name" 2>"$error_file" | tail -n "$limit" >"$log_file"; then
+		{
+			printf 'unable to read system log'
+			if [ -s "$error_file" ]; then
+				printf ': '
+				tr '\n' ' ' <"$error_file"
+			fi
+			printf '\n'
+		} >"$log_file"
+	fi
 	json_init
 	json_add_array lines
 	while IFS= read -r line; do
@@ -83,7 +91,7 @@ get_logs() {
 	json_close_array
 	json_dump
 	json_cleanup
-	rm -f "$log_file"
+	rm -f "$log_file" "$error_file"
 }
 
 check_config() {
