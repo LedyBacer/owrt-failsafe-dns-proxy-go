@@ -153,6 +153,7 @@ func (m *Manager) RecordSuccess(name string, probe bool, latency time.Duration, 
 	}
 	e.mu.Lock()
 	oldState := e.snap.State
+	changed := false
 	e.snap.LastSuccess = now
 	e.snap.LastLatency = latency
 	e.snap.LastError = ""
@@ -161,6 +162,7 @@ func (m *Manager) RecordSuccess(name string, probe bool, latency time.Duration, 
 	switch e.snap.State {
 	case Down, Recovering:
 		if !probe {
+			e.mu.Unlock()
 			return
 		}
 		if e.snap.ConsecutiveSuccess >= m.recoverThreshold {
@@ -168,12 +170,16 @@ func (m *Manager) RecordSuccess(name string, probe bool, latency time.Duration, 
 		} else {
 			e.snap.State = Recovering
 		}
+		changed = true
 	default:
 		e.snap.State = Healthy
+		changed = true
 	}
 	newState := e.snap.State
 	e.mu.Unlock()
-	m.logTransition(e, oldState, newState)
+	if changed {
+		m.logTransition(e, oldState, newState)
+	}
 }
 
 func (m *Manager) RecordFailure(name, message string, now time.Time) {

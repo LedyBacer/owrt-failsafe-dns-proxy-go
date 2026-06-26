@@ -144,6 +144,31 @@ func TestFailureAndRecoveryHysteresis(t *testing.T) {
 	}
 }
 
+func TestPassiveSuccessWhileDownDoesNotDeadlock(t *testing.T) {
+	m := testManager()
+	now := time.Unix(100, 0)
+	m.RecordFailure("primary", "timeout", now)
+	m.RecordFailure("primary", "timeout", now.Add(time.Second))
+
+	m.RecordSuccess("primary", false, time.Millisecond, now.Add(2*time.Second))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if got := m.Snapshots()[0].State; got != Down {
+			t.Errorf("passive success changed down upstream to %s", got)
+		}
+		if got := m.Active(); got != "backup" {
+			t.Errorf("active upstream = %q", got)
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("manager deadlocked after passive success on down upstream")
+	}
+}
+
 func TestEmergencyHalfOpen(t *testing.T) {
 	m := testManager()
 	now := time.Now()

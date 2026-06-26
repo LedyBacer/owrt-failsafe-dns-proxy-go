@@ -28,6 +28,8 @@
 - [x] strict-priority backpressure под burst-нагрузкой: заполненный per-upstream
   attempt limit ждёт свободный слот в request budget, а не мгновенно уводит
   запросы на менее приоритетный ISP fallback;
+- [x] исправлен deadlock status/request path после passive success в emergency
+  path для upstream в состоянии `down`/`recovering`;
 
 ### P1 — важно для управляемого домашнего использования
 

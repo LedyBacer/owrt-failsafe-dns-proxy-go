@@ -2,7 +2,7 @@
 
 **English** | [Русский](../ru/project-status.md)
 
-Daemon package version: `0.1.0-r14`.
+Daemon package version: `0.1.0-r15`.
 
 The main scenario has been verified on a Xiaomi Redmi Router AX6S with
 OpenWrt 24.10.7: installation, LuCI, primary upstream failure, fallback,
