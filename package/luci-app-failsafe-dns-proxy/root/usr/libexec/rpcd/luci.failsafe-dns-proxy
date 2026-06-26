@@ -33,7 +33,13 @@ get_status() {
 }
 
 get_service() {
+	local config_enabled
+
+	config_load "$package_name"
+	config_get_bool config_enabled main enabled 0
+
 	json_init
+	json_add_boolean config_enabled "$config_enabled"
 	if "/etc/init.d/$package_name" enabled >/dev/null 2>&1; then
 		json_add_boolean enabled 1
 	else
@@ -109,10 +115,16 @@ get_dnsmasq_integration() {
 }
 
 set_dnsmasq_integration() {
-	local action="$1"
+	local action="$1" output rc
 	case "$action" in
 		dry-run|enable|disable)
-			"$dnsmasq_helper" "$action" --json
+			output="$("$dnsmasq_helper" "$action" --json 2>&1)"
+			rc=$?
+			if [ "$rc" -eq 0 ]; then
+				printf '%s\n' "$output"
+			else
+				json_result 0 "$output"
+			fi
 			;;
 		*)
 			json_result 0 "unsupported action"

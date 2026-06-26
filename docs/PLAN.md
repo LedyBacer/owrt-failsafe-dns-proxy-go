@@ -235,6 +235,9 @@ workflow в GitHub.
 - [x] runtime status table;
 - [x] probe/test actions;
 - [x] service controls;
+- [x] LuCI controls clarified and fixed: upstream test button works from edit
+  dialogs, probe DynamicList validates each entry, runtime/autostart actions
+  are context-aware, and empty log/layout spacing is readable;
 - [x] operational log viewer;
 - [x] отдельный блок управления интеграцией dnsmasq;
 - [x] narrow rpcd exec API и least-privilege ACL;
