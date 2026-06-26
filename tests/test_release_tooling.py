@@ -68,14 +68,14 @@ class ReleaseToolingTest(unittest.TestCase):
                     "--output",
                     output,
                     "--tag",
-                    "v0.2.0",
+                    "v0.2.1",
                     "--installer",
                     REPO / "scripts/install.sh",
                 ],
                 check=True,
             )
             manifest = json.loads((output / "manifest.json").read_text())
-            self.assertEqual(manifest["release"], "v0.2.0")
+            self.assertEqual(manifest["release"], "v0.2.1")
             self.assertEqual(len(manifest["artifacts"]), 1)
             self.assertTrue((output / "install.sh").is_file())
             for package in ("daemon", "luci", "i18n_ru"):
@@ -91,7 +91,7 @@ class ReleaseToolingTest(unittest.TestCase):
             text=True,
         )
         matrix = json.loads(result.stdout)
-        self.assertEqual(len(matrix["include"]), 2)
+        self.assertEqual(len(matrix["include"]), 3)
         targets = {
             (item["openwrt_version"], item["target"], item["subtarget"])
             for item in matrix["include"]
@@ -101,6 +101,7 @@ class ReleaseToolingTest(unittest.TestCase):
             {
                 ("24.10.7", "mediatek", "mt7622"),
                 ("25.12.4", "mediatek", "mt7622"),
+                ("24.10.6", "mediatek", "filogic"),
             },
         )
         managers = {item["package_manager"] for item in matrix["include"]}

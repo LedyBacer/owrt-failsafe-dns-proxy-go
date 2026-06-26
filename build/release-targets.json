@@ -16,6 +16,14 @@
       "pkgarch": "aarch64_cortex-a53",
       "package_manager": "apk",
       "tested_on_hardware": false
+    },
+    {
+      "openwrt_version": "24.10.6",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "pkgarch": "aarch64_cortex-a53",
+      "package_manager": "opkg",
+      "tested_on_hardware": false
     }
   ]
 }

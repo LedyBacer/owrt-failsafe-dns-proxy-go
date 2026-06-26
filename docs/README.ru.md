@@ -52,7 +52,7 @@ failsafe-dns-proxy 127.0.0.1:5359
 manifest и каталога этого же release:
 
 ```sh
-RELEASE=v0.2.0
+RELEASE=v0.2.1
 BASE="https://github.com/LedyBacer/owrt-failsafe-dns-proxy-go/releases/download/$RELEASE"
 
 uclient-fetch -O /tmp/install-failsafe-dns-proxy.sh "$BASE/install.sh"

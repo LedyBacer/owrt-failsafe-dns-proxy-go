@@ -72,7 +72,7 @@ Generic builder получает точный официальный SDK из Op
 - `release.yml` — две default-сборки `mediatek/mt7622` для OpenWrt 24.10.7 и
   25.12.4, manifest, checksums и GitHub Release.
 
-Release tag должен совпадать с `PKG_VERSION`, например `v0.2.0`. Actions
+Release tag должен совпадать с `PKG_VERSION`, например `v0.2.1`. Actions
 закреплены по commit SHA. До первого успешного запуска workflow на GitHub
 release pipeline считается реализованным локально, но не подтверждённым
 публичной публикацией.

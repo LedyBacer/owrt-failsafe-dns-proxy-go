@@ -2,7 +2,7 @@
 
 [English](../en/project-status.md) | **Русский**
 
-Версия пакета daemon: `0.2.0-r1`.
+Версия пакета daemon: `0.2.1-r1`.
 
 Основной сценарий проверен на Xiaomi Redmi Router AX6S с OpenWrt 24.10.7:
 установка, LuCI, отказ основного upstream, переход на резервный, recovery,
