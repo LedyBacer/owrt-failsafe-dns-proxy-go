@@ -267,6 +267,9 @@ msgstr "Автозапуск всё ещё сообщает, что включё
 msgid "Checking…"
 msgstr "Проверка…"
 
+msgid "Testing…"
+msgstr "Проверка…"
+
 msgid "Enabling…"
 msgstr "Включение…"
 

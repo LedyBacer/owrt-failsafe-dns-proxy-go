@@ -52,7 +52,7 @@ After a release is published, download `install.sh` to the router and run it
 with the manifest and base URL from the same release:
 
 ```sh
-RELEASE=v0.1.0
+RELEASE=v0.2.0
 BASE="https://github.com/LedyBacer/owrt-failsafe-dns-proxy-go/releases/download/$RELEASE"
 
 uclient-fetch -O /tmp/install-failsafe-dns-proxy.sh "$BASE/install.sh"

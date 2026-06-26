@@ -68,14 +68,14 @@ class ReleaseToolingTest(unittest.TestCase):
                     "--output",
                     output,
                     "--tag",
-                    "v0.1.0",
+                    "v0.2.0",
                     "--installer",
                     REPO / "scripts/install.sh",
                 ],
                 check=True,
             )
             manifest = json.loads((output / "manifest.json").read_text())
-            self.assertEqual(manifest["release"], "v0.1.0")
+            self.assertEqual(manifest["release"], "v0.2.0")
             self.assertEqual(len(manifest["artifacts"]), 1)
             self.assertTrue((output / "install.sh").is_file())
             for package in ("daemon", "luci", "i18n_ru"):

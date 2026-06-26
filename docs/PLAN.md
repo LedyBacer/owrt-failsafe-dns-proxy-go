@@ -30,6 +30,8 @@
 - [x] LuCI operational log стал читать последние строки `logread -e
   failsafe-dns-proxy` без хрупкого дополнительного grep-фильтра; runtime table
   показывает `Last failure` отдельно от очищаемого `Last error`;
+- [x] LuCI upstream probe result отображается inline под конкретной кнопкой
+  проверки, а не только глобальным notification;
 - [x] strict-priority backpressure под burst-нагрузкой: заполненный per-upstream
   attempt limit ждёт свободный слот в request budget, а не мгновенно уводит
   запросы на менее приоритетный ISP fallback;

@@ -72,7 +72,7 @@ For any supported official combination the syntax is the same:
 - `release.yml` — two default `mediatek/mt7622` builds for OpenWrt 24.10.7 and
   25.12.4, manifest, checksums, and GitHub Release.
 
-The release tag must match `PKG_VERSION`, for example `v0.1.0`. Actions are
+The release tag must match `PKG_VERSION`, for example `v0.2.0`. Actions are
 pinned by commit SHA. Until the first successful GitHub workflow run, the
 release pipeline is implemented locally but not confirmed by a public release.
 

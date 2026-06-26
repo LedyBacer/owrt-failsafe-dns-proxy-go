@@ -145,6 +145,34 @@ function firstStringArgument(args) {
 	return null;
 }
 
+function firstEventArgument(args) {
+	for (let i = 0; i < args.length; i++)
+		if (args[i] && args[i].currentTarget)
+			return args[i];
+	return null;
+}
+
+function probeResultNode(sectionId, args) {
+	const event = firstEventArgument(args);
+	const button = event ? event.currentTarget : null;
+	if (!button || !button.parentNode)
+		return null;
+	let node = button.parentNode.querySelector('.fdp-probe-result');
+	if (!node) {
+		node = E('div', { class: 'fdp-probe-result', 'data-section': sectionId });
+		button.parentNode.appendChild(node);
+	}
+	return node;
+}
+
+function setProbeResult(node, text, ok) {
+	if (!node)
+		return;
+	node.textContent = text;
+	node.classList.toggle('fdp-probe-result-ok', !!ok);
+	node.classList.toggle('fdp-probe-result-error', !ok);
+}
+
 function updateRuntime(status, service, logs, integration) {
 	const serviceNode = document.getElementById('fdp-service-status');
 	const activeNode = document.getElementById('fdp-active-upstream');
@@ -271,27 +299,27 @@ return view.extend({
 
 		o = s.option(form.Value, 'attempt_timeout_ms', _('Attempt timeout (ms)'));
 		o.datatype = 'range(50,10000)';
-		o.default = '700';
+		o.default = '1500';
 		o.rmempty = false;
 
 		o = s.option(form.Value, 'request_timeout_ms', _('Total request timeout (ms)'));
 		o.datatype = 'range(50,30000)';
-		o.default = '2000';
+		o.default = '5000';
 		o.rmempty = false;
 
 		o = s.option(form.Value, 'health_interval_s', _('Health check interval (s)'));
 		o.datatype = 'range(1,3600)';
-		o.default = '5';
+		o.default = '10';
 		o.rmempty = false;
 
 		o = s.option(form.Value, 'fail_threshold', _('Failure threshold'));
 		o.datatype = 'range(1,20)';
-		o.default = '2';
+		o.default = '3';
 		o.rmempty = false;
 
 		o = s.option(form.Value, 'recover_threshold', _('Recovery threshold'));
 		o.datatype = 'range(1,20)';
-		o.default = '2';
+		o.default = '3';
 		o.rmempty = false;
 
 		o = s.option(form.Value, 'max_concurrent', _('Maximum concurrent requests'));
@@ -353,17 +381,19 @@ return view.extend({
 		o.inputstyle = 'apply';
 		o.onclick = function() {
 			const sectionId = firstStringArgument(arguments);
+			const resultNode = sectionId ? probeResultNode(sectionId, arguments) : null;
 			if (!sectionId) {
 				ui.addNotification(null, E('p', {}, _('Unable to determine upstream to test.')), 'error');
 				return Promise.resolve();
 			}
+			setProbeResult(resultNode, _('Testing…'), true);
 			return callProbe(sectionId).then(function(result) {
 				const text = result.success
 					? _('%s responded with %s in %d ms').format(result.upstream, result.rcode, result.latency_ms)
 					: _('%s probe failed: %s').format(result.upstream || sectionId, result.error || _('Unknown error'));
-				ui.addNotification(null, E('p', {}, text), result.success ? 'info' : 'error');
+				setProbeResult(resultNode, text, result.success);
 			}).catch(function(error) {
-				ui.addNotification(null, E('p', {}, _('%s probe failed: %s').format(sectionId, error.message || error)), 'error');
+				setProbeResult(resultNode, _('%s probe failed: %s').format(sectionId, error.message || error), false);
 			});
 		};
 
@@ -374,6 +404,9 @@ return view.extend({
 				'.fdp-runtime-section{padding:1rem 1rem 1.25rem}',
 				'.fdp-integration-section{padding:1rem}',
 				'.fdp-actions .btn,.fdp-section-actions .btn{min-width:9rem;white-space:normal}',
+				'.fdp-probe-result{margin-top:.35rem;font-size:.92em;line-height:1.35;color:var(--text-color-medium, #555);max-width:18rem;white-space:normal}',
+				'.fdp-probe-result-ok{color:var(--success-color, #137333)}',
+				'.fdp-probe-result-error{color:var(--error-color, #c62828)}',
 				'.fdp-log{box-sizing:border-box;width:100%;min-height:4.5em;padding:.75rem;margin-top:.5rem;border:1px solid var(--border-color-medium, #ddd);border-radius:4px;background:var(--background-color-low, #fff)}',
 				'.fdp-help{margin:.25rem 1rem .75rem;color:var(--text-color-medium, #555)}'
 			].join('\n')),

@@ -3,8 +3,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-failsafe-dns-proxy
-PKG_VERSION:=0.1.0
-PKG_RELEASE:=6
+PKG_VERSION:=0.2.0
+PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI support for Failsafe DNS Proxy
 LUCI_DESCRIPTION:=Configure and monitor strict-priority DNS failover
