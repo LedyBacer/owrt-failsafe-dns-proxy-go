@@ -27,21 +27,21 @@ const callLogs = rpc.declare({
 const callCheckConfig = rpc.declare({
 	object: 'luci.failsafe-dns-proxy',
 	method: 'checkConfig',
-	expect: { result: false, message: '' }
+	expect: { '': {} }
 });
 
 const callProbe = rpc.declare({
 	object: 'luci.failsafe-dns-proxy',
 	method: 'probe',
 	params: [ 'name' ],
-	expect: { success: false }
+	expect: { '': {} }
 });
 
 const callServiceAction = rpc.declare({
 	object: 'luci.failsafe-dns-proxy',
 	method: 'setServiceAction',
 	params: [ 'action' ],
-	expect: { result: false, message: '' }
+	expect: { '': {} }
 });
 
 const callDnsmasqIntegration = rpc.declare({
@@ -79,6 +79,63 @@ function setButtonDisabled(id, disabled) {
 	const button = document.getElementById(id);
 	if (button)
 		button.disabled = !!disabled;
+}
+
+function messageOf(value, fallback) {
+	if (value == null)
+		return fallback || _('Unknown error');
+	if (typeof value === 'string')
+		return value || fallback || _('Unknown error');
+	if (value.message)
+		return value.message;
+	if (value.error)
+		return value.error;
+	if (value.stderr)
+		return value.stderr;
+	if (value.stdout)
+		return value.stdout;
+	return fallback || _('Unknown error');
+}
+
+function resultOK(result) {
+	return result && (result.result === true || result.result === 1 || result.result === '1' || result.success === true || result.success === 1 || result.success === '1');
+}
+
+function setLoading(button, loading, loadingText) {
+	if (!button)
+		return;
+	if (loading) {
+		document.querySelectorAll('.fdp-actions button,.fdp-section-actions button').forEach(function(item) {
+			item.disabled = true;
+		});
+		button.dataset.fdpText = button.textContent;
+		button.classList.add('spinning');
+		button.textContent = loadingText || _('Working…');
+	} else {
+		button.classList.remove('spinning');
+		button.disabled = false;
+		if (button.dataset.fdpText) {
+			button.textContent = button.dataset.fdpText;
+			delete button.dataset.fdpText;
+		}
+	}
+}
+
+function actionHandler(buttonId, loadingText, action) {
+	return function() {
+		const button = document.getElementById(buttonId);
+		setLoading(button, true, loadingText);
+		return Promise.resolve()
+			.then(action)
+			.catch(function(error) {
+				ui.addNotification(null, E('p', {}, messageOf(error, _('Operation failed'))), 'error');
+			})
+			.then(refreshRuntime)
+			.finally(function() {
+				setLoading(button, false);
+				return refreshRuntime();
+			});
+	};
 }
 
 function firstStringArgument(args) {
@@ -125,13 +182,16 @@ function updateRuntime(status, service, logs, integration) {
 			? _('Enabled: dnsmasq uses %s').format(integration.server || '-')
 			: _('Disabled: dnsmasq configuration is unchanged');
 
-	setButtonDisabled('fdp-start', service.running || !service.config_enabled);
-	setButtonDisabled('fdp-restart', !service.running || !service.config_enabled);
-	setButtonDisabled('fdp-stop', !service.running);
-	setButtonDisabled('fdp-enable-autostart', !!service.enabled);
-	setButtonDisabled('fdp-disable-autostart', !service.enabled);
-	setButtonDisabled('fdp-enable-integration', !!integration.enabled);
-	setButtonDisabled('fdp-disable-integration', !integration.enabled);
+	const busy = document.querySelector('.fdp-actions .spinning,.fdp-section-actions .spinning');
+	if (!busy) {
+		setButtonDisabled('fdp-start', service.running || !service.config_enabled);
+		setButtonDisabled('fdp-restart', !service.running || !service.config_enabled);
+		setButtonDisabled('fdp-stop', !service.running);
+		setButtonDisabled('fdp-enable-autostart', !!service.enabled);
+		setButtonDisabled('fdp-disable-autostart', !service.enabled);
+		setButtonDisabled('fdp-enable-integration', !!integration.enabled);
+		setButtonDisabled('fdp-disable-integration', !integration.enabled);
+	}
 }
 
 function refreshRuntime() {
@@ -146,9 +206,23 @@ function refreshRuntime() {
 }
 
 function notifyResult(result, successText) {
-	const ok = !!result.result;
-	ui.addNotification(null, E('p', {}, ok ? (result.message || successText) : (result.message || _('Operation failed'))), ok ? 'info' : 'error');
+	const ok = resultOK(result);
+	ui.addNotification(null, E('p', {}, ok ? messageOf(result, successText) : messageOf(result, _('Operation failed'))), ok ? 'info' : 'error');
 	return refreshRuntime();
+}
+
+function notifyVerified(result, successText, verify, verifyFailedText) {
+	const ok = resultOK(result);
+	if (!ok) {
+		ui.addNotification(null, E('p', {}, messageOf(result, _('Operation failed'))), 'error');
+		return Promise.resolve();
+	}
+	return Promise.resolve(verify ? verify() : true).then(function(verified) {
+		if (verified)
+			ui.addNotification(null, E('p', {}, messageOf(result, successText)), 'info');
+		else
+			ui.addNotification(null, E('p', {}, verifyFailedText || _('The command completed, but the expected state was not observed.')), 'error');
+	});
 }
 
 function normalizedProbeValues(value) {
@@ -294,11 +368,13 @@ return view.extend({
 
 		const runtime = E('div', { class: 'cbi-map' }, [
 			E('style', {}, [
-				'.fdp-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.75rem 0 1rem}',
-				'.fdp-section-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}',
-				'.fdp-runtime-section{padding-bottom:1rem}',
+				'.fdp-actions{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin:1rem 0 1.25rem;padding:0 1rem}',
+				'.fdp-section-actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem;padding:0 1rem 1rem}',
+				'.fdp-runtime-section{padding:1rem 1rem 1.25rem}',
+				'.fdp-integration-section{padding:1rem}',
+				'.fdp-actions .btn,.fdp-section-actions .btn{min-width:9rem;white-space:normal}',
 				'.fdp-log{box-sizing:border-box;width:100%;min-height:4.5em;padding:.75rem;margin-top:.5rem;border:1px solid var(--border-color-medium, #ddd);border-radius:4px;background:var(--background-color-low, #fff)}',
-				'.fdp-help{margin:.25rem 0 .75rem;color:var(--text-color-medium, #555)}'
+				'.fdp-help{margin:.25rem 1rem .75rem;color:var(--text-color-medium, #555)}'
 			].join('\n')),
 			E('h2', {}, _('Runtime status')),
 			E('div', { class: 'cbi-section fdp-runtime-section' }, [
@@ -319,32 +395,64 @@ return view.extend({
 					E('button', {
 						id: 'fdp-start',
 						class: 'btn cbi-button-action',
-						click: ui.createHandlerFn(this, function() { return callServiceAction('start').then(function(r) { return notifyResult(r, _('Service started')); }); })
+						click: ui.createHandlerFn(this, actionHandler('fdp-start', _('Starting…'), function() {
+							return callServiceAction('start').then(function(r) {
+								return notifyVerified(r, _('Service started'), function() {
+									return callService().then(function(service) { return !!service.running; });
+								}, _('Service did not report as running after start.'));
+							});
+						}))
 					}, _('Start')),
 					E('button', {
 						id: 'fdp-restart',
 						class: 'btn cbi-button-action',
-						click: ui.createHandlerFn(this, function() { return callServiceAction('restart').then(function(r) { return notifyResult(r, _('Service restarted')); }); })
+						click: ui.createHandlerFn(this, actionHandler('fdp-restart', _('Restarting…'), function() {
+							return callServiceAction('restart').then(function(r) {
+								return notifyVerified(r, _('Service restarted'), function() {
+									return callService().then(function(service) { return !!service.running; });
+								}, _('Service did not report as running after restart.'));
+							});
+						}))
 					}, _('Restart')),
 					E('button', {
 						id: 'fdp-stop',
 						class: 'btn cbi-button-negative',
-						click: ui.createHandlerFn(this, function() { return callServiceAction('stop').then(function(r) { return notifyResult(r, _('Service stopped')); }); })
+						click: ui.createHandlerFn(this, actionHandler('fdp-stop', _('Stopping…'), function() {
+							return callServiceAction('stop').then(function(r) {
+								return notifyVerified(r, _('Service stopped'), function() {
+									return callService().then(function(service) { return !service.running; });
+								}, _('Service still reports as running after stop.'));
+							});
+						}))
 					}, _('Stop')),
 					E('button', {
 						id: 'fdp-enable-autostart',
 						class: 'btn cbi-button-positive',
-						click: ui.createHandlerFn(this, function() { return callServiceAction('enable').then(function(r) { return notifyResult(r, _('Autostart enabled')); }); })
+						click: ui.createHandlerFn(this, actionHandler('fdp-enable-autostart', _('Applying…'), function() {
+							return callServiceAction('enable').then(function(r) {
+								return notifyVerified(r, _('Autostart enabled'), function() {
+									return callService().then(function(service) { return !!service.enabled; });
+								}, _('Autostart did not report as enabled.'));
+							});
+						}))
 					}, _('Enable autostart')),
 					E('button', {
 						id: 'fdp-disable-autostart',
 						class: 'btn cbi-button-negative',
-						click: ui.createHandlerFn(this, function() { return callServiceAction('disable').then(function(r) { return notifyResult(r, _('Autostart disabled')); }); })
+						click: ui.createHandlerFn(this, actionHandler('fdp-disable-autostart', _('Applying…'), function() {
+							return callServiceAction('disable').then(function(r) {
+								return notifyVerified(r, _('Autostart disabled'), function() {
+									return callService().then(function(service) { return !service.enabled; });
+								}, _('Autostart still reports as enabled.'));
+							});
+						}))
 					}, _('Disable autostart')),
 					E('button', {
 						id: 'fdp-check-config',
 						class: 'btn cbi-button',
-						click: ui.createHandlerFn(this, function() { return callCheckConfig().then(function(r) { return notifyResult(r, _('Configuration is valid')); }); })
+						click: ui.createHandlerFn(this, actionHandler('fdp-check-config', _('Checking…'), function() {
+							return callCheckConfig().then(function(r) { return notifyResult(r, _('Configuration is valid')); });
+						}))
 					}, _('Check configuration'))
 				])
 			]),
@@ -363,7 +471,7 @@ return view.extend({
 				])
 			]),
 			E('h3', {}, _('dnsmasq integration')),
-			E('div', { class: 'cbi-section' }, [
+			E('div', { class: 'cbi-section fdp-integration-section' }, [
 				E('p', {}, _('Integration is explicit and reversible. The current dnsmasq configuration is backed up and automatically restored if verification fails.')),
 				E('p', {}, [
 					E('strong', { id: 'fdp-dnsmasq-status' }, '-')
@@ -372,32 +480,33 @@ return view.extend({
 					E('button', {
 						id: 'fdp-dry-run-integration',
 						class: 'btn cbi-button',
-						click: ui.createHandlerFn(this, function() {
+						click: ui.createHandlerFn(this, actionHandler('fdp-dry-run-integration', _('Checking…'), function() {
 							return callDnsmasqAction('dry-run').then(function(r) {
-								ui.addNotification(null, E('p', {}, r.message || _('Preflight checks passed.')), r.result === false ? 'error' : 'info');
-								return refreshRuntime();
+								return notifyResult(r, _('Preflight checks passed.'));
 							});
-						})
+						}))
 					}, _('Dry run')),
 					E('button', {
 						id: 'fdp-enable-integration',
 						class: 'btn cbi-button-positive',
-						click: ui.createHandlerFn(this, function() {
+						click: ui.createHandlerFn(this, actionHandler('fdp-enable-integration', _('Enabling…'), function() {
 							return callDnsmasqAction('enable').then(function(r) {
-								ui.addNotification(null, E('p', {}, r.message || _('dnsmasq integration enabled.')), r.result === false ? 'error' : 'info');
-								return refreshRuntime();
+								return notifyVerified(r, _('dnsmasq integration enabled.'), function() {
+									return callDnsmasqIntegration().then(function(integration) { return !!integration.enabled; });
+								}, _('dnsmasq integration did not report as enabled.'));
 							});
-						})
+						}))
 					}, _('Enable integration')),
 					E('button', {
 						id: 'fdp-disable-integration',
 						class: 'btn cbi-button-negative',
-						click: ui.createHandlerFn(this, function() {
+						click: ui.createHandlerFn(this, actionHandler('fdp-disable-integration', _('Restoring…'), function() {
 							return callDnsmasqAction('disable').then(function(r) {
-								ui.addNotification(null, E('p', {}, r.message || _('dnsmasq integration disabled.')), r.result === false ? 'error' : 'info');
-								return refreshRuntime();
+								return notifyVerified(r, _('dnsmasq integration disabled.'), function() {
+									return callDnsmasqIntegration().then(function(integration) { return !integration.enabled; });
+								}, _('dnsmasq integration still reports as enabled.'));
 							});
-						})
+						}))
 					}, _('Disable and restore'))
 				])
 			]),

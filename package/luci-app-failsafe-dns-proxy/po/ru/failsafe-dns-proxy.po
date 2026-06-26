@@ -218,3 +218,60 @@ msgstr "Автозапуск отключён"
 
 msgid "Unable to determine upstream to test."
 msgstr "Не удалось определить DNS-сервер для проверки."
+
+msgid "Working…"
+msgstr "Выполняется…"
+
+msgid "The command completed, but the expected state was not observed."
+msgstr "Команда завершилась, но ожидаемое состояние не подтвердилось."
+
+msgid "Starting…"
+msgstr "Запуск…"
+
+msgid "Service started"
+msgstr "Сервис запущен"
+
+msgid "Service did not report as running after start."
+msgstr "После запуска сервис не сообщил, что работает."
+
+msgid "Restarting…"
+msgstr "Перезапуск…"
+
+msgid "Service restarted"
+msgstr "Сервис перезапущен"
+
+msgid "Service did not report as running after restart."
+msgstr "После перезапуска сервис не сообщил, что работает."
+
+msgid "Stopping…"
+msgstr "Остановка…"
+
+msgid "Service stopped"
+msgstr "Сервис остановлен"
+
+msgid "Service still reports as running after stop."
+msgstr "После остановки сервис всё ещё сообщает, что работает."
+
+msgid "Applying…"
+msgstr "Применение…"
+
+msgid "Autostart did not report as enabled."
+msgstr "Автозапуск не подтвердил включённое состояние."
+
+msgid "Autostart still reports as enabled."
+msgstr "Автозапуск всё ещё сообщает, что включён."
+
+msgid "Checking…"
+msgstr "Проверка…"
+
+msgid "Enabling…"
+msgstr "Включение…"
+
+msgid "dnsmasq integration did not report as enabled."
+msgstr "Интеграция с dnsmasq не подтвердила включённое состояние."
+
+msgid "Restoring…"
+msgstr "Восстановление…"
+
+msgid "dnsmasq integration still reports as enabled."
+msgstr "Интеграция с dnsmasq всё ещё сообщает, что включена."

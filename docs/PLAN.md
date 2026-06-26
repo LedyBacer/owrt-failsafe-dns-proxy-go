@@ -25,6 +25,8 @@
   dnsmasq.
 - [x] preflight-защита от конкурирующей dnsmasq-интеграции `https-dns-proxy`
   для локальных upstream `127.0.0.1:5053/5054`;
+- [x] LuCI action UX: реальные сообщения ошибок RPC/probe/check-config,
+  loader state, post-action verification и нормальные отступы кнопок;
 - [x] strict-priority backpressure под burst-нагрузкой: заполненный per-upstream
   attempt limit ждёт свободный слот в request budget, а не мгновенно уводит
   запросы на менее приоритетный ISP fallback;

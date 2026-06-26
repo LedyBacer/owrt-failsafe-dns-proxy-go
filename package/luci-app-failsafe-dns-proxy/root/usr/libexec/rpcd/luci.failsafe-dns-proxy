@@ -16,6 +16,15 @@ json_result() {
 	json_cleanup
 }
 
+json_probe_error() {
+	json_init
+	json_add_boolean success 0
+	json_add_string upstream "$1"
+	json_add_string error "$2"
+	json_dump
+	json_cleanup
+}
+
 get_status() {
 	local output
 	if output="$("$binary" status --json 2>/dev/null)"; then
@@ -89,19 +98,29 @@ check_config() {
 }
 
 probe_upstream() {
-	local name="$1"
+	local name="$1" output rc
 	name="$(basename "$name")"
-	"$binary" probe --config "$config" --json "$name" 2>/dev/null
+	output="$("$binary" probe --config "$config" --json "$name" 2>&1)"
+	rc=$?
+	if [ "$rc" -eq 0 ] && [ -n "$output" ]; then
+		printf '%s\n' "$output"
+	else
+		[ -n "$output" ] || output="probe command failed"
+		json_probe_error "$name" "$output"
+	fi
 }
 
 set_service_action() {
-	local action="$1"
+	local action="$1" output rc
 	case "$action" in
 		start|stop|restart|reload|enable|disable)
-			if "/etc/init.d/$package_name" "$action" >/dev/null 2>&1; then
+			output="$(/etc/init.d/"$package_name" "$action" 2>&1)"
+			rc=$?
+			if [ "$rc" -eq 0 ]; then
 				json_result 1 "$action succeeded"
 			else
-				json_result 0 "$action failed"
+				[ -n "$output" ] || output="$action failed"
+				json_result 0 "$output"
 			fi
 			;;
 		*)
@@ -111,7 +130,11 @@ set_service_action() {
 }
 
 get_dnsmasq_integration() {
-	"$dnsmasq_helper" status --json
+	if [ -x "$dnsmasq_helper" ]; then
+		"$dnsmasq_helper" status --json
+	else
+		json_result 0 "dnsmasq integration helper is not installed"
+	fi
 }
 
 set_dnsmasq_integration() {
