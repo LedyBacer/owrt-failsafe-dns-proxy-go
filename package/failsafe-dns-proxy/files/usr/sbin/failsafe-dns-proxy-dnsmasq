@@ -47,6 +47,13 @@ proxy_server_value() {
 	esac
 }
 
+is_loopback() {
+	case "$1" in
+		127.*|::1) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
 probe_name() {
 	local probe
 	probe="$("$UCI" -q get failsafe-dns-proxy.main.probe | awk '{ print $1 }')"
@@ -76,6 +83,49 @@ run_with_timeout() {
 	return "$rc"
 }
 
+https_dns_proxy_dnsmasq_update() {
+	local value
+	value="$("$UCI" -q get https-dns-proxy.config.dnsmasq_config_update 2>/dev/null ||
+		"$UCI" -q get 'https-dns-proxy.@main[0].dnsmasq_config_update' 2>/dev/null ||
+		true)"
+	[ -n "$value" ] || value="*"
+	printf '%s\n' "$value"
+}
+
+https_dns_proxy_listen_addr() {
+	local section value
+	section="$1"
+	value="$("$UCI" -q get "https-dns-proxy.$section.listen_addr" 2>/dev/null ||
+		"$UCI" -q get https-dns-proxy.config.listen_addr 2>/dev/null ||
+		"$UCI" -q get 'https-dns-proxy.@main[0].listen_addr' 2>/dev/null ||
+		true)"
+	[ -n "$value" ] || value="127.0.0.1"
+	printf '%s\n' "$value"
+}
+
+check_https_dns_proxy_ownership() {
+	local update upstream section upstream_address upstream_port listen_addr listen_port
+	update="$(https_dns_proxy_dnsmasq_update)"
+	[ "$update" = "-" ] && return 0
+	for upstream in $("$UCI" -q show failsafe-dns-proxy |
+		sed -n "s/^failsafe-dns-proxy\\.\\([^.=]*\\)=upstream$/\\1/p"); do
+		[ "$("$UCI" -q get "failsafe-dns-proxy.$upstream.enabled")" = "0" ] && continue
+		upstream_address="$("$UCI" -q get "failsafe-dns-proxy.$upstream.address")"
+		is_loopback "$upstream_address" || continue
+		upstream_port="$("$UCI" -q get "failsafe-dns-proxy.$upstream.port")"
+		for section in $("$UCI" -q show https-dns-proxy 2>/dev/null |
+			sed -n "s/^https-dns-proxy\\.\\([^=]*\\)=https-dns-proxy$/\\1/p"); do
+			listen_addr="$(https_dns_proxy_listen_addr "$section")"
+			listen_port="$("$UCI" -q get "https-dns-proxy.$section.listen_port" 2>/dev/null || true)"
+			[ -n "$listen_port" ] || continue
+			[ "$upstream_address:$upstream_port" = "$listen_addr:$listen_port" ] || continue
+			fail "Upstream $upstream points to https-dns-proxy $listen_addr:$listen_port, but https-dns-proxy still manages dnsmasq (dnsmasq_config_update='$update'). Set uci set https-dns-proxy.config.dnsmasq_config_update='-'; uci commit https-dns-proxy; /etc/init.d/https-dns-proxy restart, then run this command again."
+			return 1
+		done
+	done
+	return 0
+}
+
 dry_run() {
 	local section address port upstream endpoint
 	"$PROXY" check-config --config "$PROXY_CONFIG" >/dev/null ||
@@ -96,6 +146,7 @@ dry_run() {
 			fail "Upstream $upstream points back to the proxy listener and would create a DNS loop." || return 1
 		fi
 	done
+	check_https_dns_proxy_ownership || return 1
 	"$PROXY_INIT" running >/dev/null 2>&1 ||
 		fail "Failsafe DNS Proxy is not running." || return 1
 	"$PROXY" self-test --config "$PROXY_CONFIG" >/dev/null ||

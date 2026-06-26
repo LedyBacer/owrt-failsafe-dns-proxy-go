@@ -28,6 +28,13 @@ case "$command" in
 			failsafe-dns-proxy.public_fallback.enabled) echo 1 ;;
 			failsafe-dns-proxy.public_fallback.address) echo 77.88.8.8 ;;
 			failsafe-dns-proxy.public_fallback.port) echo 53 ;;
+			https-dns-proxy.config.dnsmasq_config_update)
+				[ -n "${MOCK_HTTPS_DNS_PROXY_UPDATE+x}" ] || exit 1
+				echo "$MOCK_HTTPS_DNS_PROXY_UPDATE"
+				;;
+			https-dns-proxy.config.listen_addr) echo 127.0.0.1 ;;
+			https-dns-proxy.cfg5054.listen_addr) echo 127.0.0.1 ;;
+			https-dns-proxy.cfg5054.listen_port) echo 5054 ;;
 			*) [ "$quiet" -eq 1 ] || echo "unknown get $1" >&2; exit 1 ;;
 		esac
 		;;
@@ -40,6 +47,11 @@ case "$command" in
 				echo "failsafe-dns-proxy.main=main"
 				echo "failsafe-dns-proxy.encrypted_local=upstream"
 				echo "failsafe-dns-proxy.public_fallback=upstream"
+				;;
+			https-dns-proxy)
+				[ "${MOCK_HTTPS_DNS_PROXY_INSTALLED:-0}" = 1 ] || exit 0
+				echo "https-dns-proxy.config=main"
+				echo "https-dns-proxy.cfg5054=https-dns-proxy"
 				;;
 		esac
 		;;
@@ -110,6 +122,16 @@ helper="$repo_dir/package/failsafe-dns-proxy/files/usr/sbin/failsafe-dns-proxy-d
 
 "$helper" dry-run >/dev/null
 [ ! -e "$FDP_BACKUP_FILE" ]
+
+export MOCK_HTTPS_DNS_PROXY_INSTALLED=1
+if "$helper" dry-run >/dev/null 2>"$temporary/https-dns-proxy-error"; then
+	echo "dry-run unexpectedly accepted competing https-dns-proxy dnsmasq ownership" >&2
+	exit 1
+fi
+grep -q "dnsmasq_config_update" "$temporary/https-dns-proxy-error"
+export MOCK_HTTPS_DNS_PROXY_UPDATE="-"
+"$helper" dry-run >/dev/null
+unset MOCK_HTTPS_DNS_PROXY_INSTALLED MOCK_HTTPS_DNS_PROXY_UPDATE
 
 "$helper" enable >/dev/null
 [ -s "$FDP_BACKUP_FILE" ]
