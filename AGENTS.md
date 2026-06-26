@@ -139,6 +139,12 @@ probed immediately.
   apply/test actions. It must not contain failover logic.
 - LuCI RPC permissions must follow least privilege. Prefer a narrow daemon
   control/status interface over unrestricted shell execution.
+- If an enabled upstream points to a local `https-dns-proxy` listener, dnsmasq
+  integration must reject or clearly warn when `https-dns-proxy` is still
+  configured to manage dnsmasq itself. Require
+  `https-dns-proxy.config.dnsmasq_config_update='-'` before making
+  Failsafe DNS Proxy the dnsmasq upstream; otherwise both services can rewrite
+  `/etc/config/dhcp` and create delayed local upstream timeouts.
 
 ## Go implementation rules
 
