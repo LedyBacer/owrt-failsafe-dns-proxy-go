@@ -1,6 +1,8 @@
 package failover
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"sort"
 	"sync"
@@ -110,6 +112,19 @@ func (m *Manager) BeginAttempt(name string) (func(), bool) {
 		return func() { <-e.attempts }, true
 	default:
 		return func() {}, false
+	}
+}
+
+func (m *Manager) BeginAttemptContext(ctx context.Context, name string) (func(), error) {
+	e := m.byName[name]
+	if e == nil {
+		return func() {}, errors.New("unknown upstream")
+	}
+	select {
+	case e.attempts <- struct{}{}:
+		return func() { <-e.attempts }, nil
+	case <-ctx.Done():
+		return func() {}, ctx.Err()
 	}
 }
 

@@ -117,10 +117,10 @@ func (s *Server) resolve(ctx context.Context, runtime *runtimecfg.Snapshot, requ
 			failures = append(failures, err)
 			break
 		}
-		release, ok := runtime.Manager.BeginAttempt(candidate.Name)
-		if !ok {
-			failures = append(failures, fmt.Errorf("%s: attempt concurrency limit reached", candidate.Name))
-			continue
+		release, err := runtime.Manager.BeginAttemptContext(ctx, candidate.Name)
+		if err != nil {
+			failures = append(failures, fmt.Errorf("%s: wait for attempt slot: %w", candidate.Name, err))
+			break
 		}
 		timeout := runtime.Config.AttemptTimeout
 		if deadline, ok := ctx.Deadline(); ok {
